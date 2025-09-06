@@ -1,0 +1,18 @@
+<% layout('partials/layout') %>
+<section class="panel">
+  <h1 class="panel-title">Settings</h1>
+  <p class="text-dim">Platform configuration controls.</p>
+  <div class="panel-body" id="settingsPanel">
+    <form class="settings-form" onsubmit="return false;">
+      <div class="form-row">
+        <label>Site Title<br><input type="text" value="Nude Platform" /></label>
+      </div>
+      <div class="form-row">
+        <label>Max Upload Files<br><input type="number" value="16" min="1" /></label>
+      </div>
+      <div class="form-row">
+        <button class="btn-accent" type="button" onclick="window.toast?.info('Save not yet implemented')">Save</button>
+      </div>
+    </form>
+  </div>
+</section>

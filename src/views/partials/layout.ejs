@@ -1,0 +1,16 @@
+<%- include('../../../NudeShared/views/shared/header', { siteTitle: (siteTitle||'Nude Platform'), title }) %>
+<main class="admin-main" style="padding-top:var(--topbar-height);">
+  <nav class="admin-subnav">
+    <a href="/users" class="subnav-link <%= currentPath.startsWith('/users') ? 'active' : '' %>">Users</a>
+    <a href="/media" class="subnav-link <%= currentPath.startsWith('/media') ? 'active' : '' %>">Media</a>
+    <a href="/settings" class="subnav-link <%= currentPath.startsWith('/settings') ? 'active' : '' %>">Settings</a>
+    <a href="/profile" class="subnav-link <%= currentPath.startsWith('/profile') ? 'active' : '' %>">Profile</a>
+  </nav>
+  <div class="admin-content">
+    <%- body %>
+  </div>
+</main>
+<link rel="stylesheet" href="/static/css/admin.css" />
+<script defer src="/shared/client/clientLogger.js"></script>
+<script defer src="/static/js/admin.js"></script>
+<%- include('../../../NudeShared/views/shared/footer') %>
