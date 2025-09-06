@@ -16,14 +16,20 @@ function request(method, urlStr, data, headers={}){
 
 (async () => {
   const server = app.listen(0); const base = `http://127.0.0.1:${server.address().port}`;
+  const testEmail = `mediauser${Date.now()}@example.com`;
   let cookie; let userId;
-  // signup
+  // signup unique
   {
-    const res = await request('POST', base + '/auth/signup', { email:'mediauser@example.com', password:'secret123' });
-    cookie = res.headers['set-cookie']?.[0].split(';')[0];
+    const res = await request('POST', base + '/auth/signup', { email:testEmail, password:'secret123' });
+    cookie = res.headers['set-cookie']?.[0]?.split(';')[0];
   }
   // promote
-  await query('UPDATE users SET role=? WHERE email=?', ['admin','mediauser@example.com']);
+  await query('UPDATE users SET role=? WHERE email=?', ['admin', testEmail]);
+  // re-login to refresh session with role
+  {
+    const res = await request('POST', base + '/auth/login', { email:testEmail, password:'secret123' }, { Cookie: cookie });
+    cookie = res.headers['set-cookie']?.[0]?.split(';')[0] || cookie;
+  }
   // fetch users list
   {
     const res = await request('GET', base + '/api/admin/users', null, { Cookie: cookie });

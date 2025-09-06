@@ -17,13 +17,19 @@ function req(method, urlStr, data, headers={}){
 (async () => {
   const server = app.listen(0); const base = `http://127.0.0.1:${server.address().port}`;
   // Create admin user via signup
+  const testEmail = `mediaadmin${Date.now()}@example.com`;
   let cookie; let userId;
   {
-    const res = await req('POST', base + '/auth/signup', { email:'mediaadmin@example.com', password:'secret123' });
-    cookie = res.headers['set-cookie']?.[0].split(';')[0];
+    const res = await req('POST', base + '/auth/signup', { email:testEmail, password:'secret123' });
+    cookie = res.headers['set-cookie']?.[0]?.split(';')[0];
     assert.ok(cookie, 'signup cookie');
   }
-  await query('UPDATE users SET role=? WHERE email=?', ['admin','mediaadmin@example.com']);
+  await query('UPDATE users SET role=? WHERE email=?', ['admin', testEmail]);
+  // re-login so session user object has role
+  {
+    const res = await req('POST', base + '/auth/login', { email:testEmail, password:'secret123' }, { Cookie: cookie });
+    cookie = res.headers['set-cookie']?.[0]?.split(';')[0] || cookie;
+  }
   {
     const res = await req('GET', base + '/api/admin/users', null, { Cookie: cookie });
     const js = JSON.parse(res.body); userId = js.users[0].id;

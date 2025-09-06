@@ -140,6 +140,11 @@ app.post('/api/admin/media/actions', requireAuth, requireAdmin, async (req,res)=
 })();
 
 const PORT = process.env.PORT || 8090;
-app.listen(PORT, () => {
-  console.log(`[nudeadmin] listening on port ${PORT}`);
-});
+// Only start server if this file is the entrypoint (not when imported for tests)
+if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
+  app.listen(PORT, () => {
+    console.log(`[nudeadmin] listening on port ${PORT}`);
+  });
+}
+
+export { app };

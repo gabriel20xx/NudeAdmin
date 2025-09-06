@@ -19,19 +19,28 @@ function req(method, urlStr, data, headers={}){
 (async () => {
   const server = app.listen(0);
   const base = `http://127.0.0.1:${server.address().port}`;
+  const testEmail = `admin${Date.now()}@example.com`;
 
-  // Signup test user
+  // Signup test user with unique email to avoid 409 on reruns
   let cookie;
   {
-    const res = await req('POST', base + '/auth/signup', { email:'admin@example.com', password:'secret123' });
+    const res = await req('POST', base + '/auth/signup', { email:testEmail, password:'secret123' });
     assert.strictEqual(res.statusCode, 200, 'signup 200');
-    cookie = res.headers['set-cookie']?.[0].split(';')[0];
+    cookie = res.headers['set-cookie']?.[0]?.split(';')[0];
     assert.ok(cookie, 'signup sets cookie');
   }
 
   // Promote to admin directly via DB
   {
-    await query('UPDATE users SET role = ? WHERE email = ?', ['admin','admin@example.com']);
+    await query('UPDATE users SET role = ? WHERE email = ?', ['admin', testEmail]);
+  }
+
+  // Re-login to refresh session user object with role
+  {
+    const res = await req('POST', base + '/auth/login', { email:testEmail, password:'secret123' }, { Cookie: cookie });
+    assert.strictEqual(res.statusCode, 200, 'relogin 200');
+    // keep existing cookie if not new
+    cookie = res.headers['set-cookie']?.[0]?.split(';')[0] || cookie;
   }
 
   // Access users list (should now 200)
