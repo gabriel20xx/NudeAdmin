@@ -1,4 +1,4 @@
-<%- include('../../../NudeShared/views/shared/header', { siteTitle: (siteTitle||'Nude Platform'), title }) %>
+<%- include('../../../../NudeShared/views/shared/header', { siteTitle: (siteTitle||'Nude Platform'), title }) %>
 <main class="admin-main" style="padding-top:var(--topbar-height);">
   <nav class="admin-subnav">
     <a href="/users" class="subnav-link <%= currentPath.startsWith('/users') ? 'active' : '' %>">Users</a>
@@ -13,4 +13,4 @@
 <link rel="stylesheet" href="/static/css/admin.css" />
 <script defer src="/shared/client/clientLogger.js"></script>
 <script defer src="/static/js/admin.js"></script>
-<%- include('../../../NudeShared/views/shared/footer') %>
+<%- include('../../../../NudeShared/views/shared/footer') %>
