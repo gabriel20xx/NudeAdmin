@@ -24,6 +24,34 @@ const app = express();
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
+// Minimal layout helper to support `<% layout('partials/layout') %>` in views
+// Usage in a view: `<% layout('partials/layout') %>` then the template's body will be exposed as `body` inside the layout file.
+app.use((req, res, next) => {
+  res.locals.__layout = null;
+  res.locals.layout = function(layoutPath){ res.locals.__layout = layoutPath; };
+  // Wrap render to inject body into layout if requested
+  const origRender = res.render.bind(res);
+  res.render = function(view, options = {}, callback){
+    // First render original view to string
+    return origRender(view, { ...res.locals, ...options }, function(err, html){
+      if (err) return callback ? callback(err) : req.next(err);
+      if (!res.locals.__layout) {
+        return callback ? callback(null, html) : res.send(html);
+      }
+      const bodyHtml = html;
+      const layoutView = res.locals.__layout;
+      // Prevent recursive layout usage inside layout itself
+      const layoutLocals = { ...res.locals, ...options, body: bodyHtml };
+      res.locals.__layout = null; // reset
+      return origRender(layoutView, layoutLocals, callback ? callback : function(lErr, lHtml){
+        if (lErr) return req.next(lErr);
+        res.send(lHtml);
+      });
+    });
+  };
+  next();
+});
+
 // Static: serve admin public and mount shared assets if available
 app.use('/static', express.static(path.join(__dirname, 'public')));
   app.use(express.json({ limit: '1mb' }));
