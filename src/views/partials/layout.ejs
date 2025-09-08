@@ -1,5 +1,5 @@
 <%- include('../../../../NudeShared/views/shared/header', { siteTitle: (siteTitle||'Nude Platform'), title }) %>
-<main class="admin-main" style="padding-top:var(--topbar-height);">
+<main class="admin-main" style="padding-top:var(--topbar-height); padding-bottom:var(--bottom-nav-height);">
   <nav class="admin-subnav">
     <a href="/users" class="subnav-link <%= currentPath.startsWith('/users') ? 'active' : '' %>">Users</a>
     <a href="/media" class="subnav-link <%= currentPath.startsWith('/media') ? 'active' : '' %>">Media</a>
@@ -9,6 +9,35 @@
   <div class="admin-content">
     <%- body %>
   </div>
+  <!-- Bottom Tab Navigation (shared style) -->
+  <nav class="bottom-nav" role="navigation" aria-label="Primary">
+    <ul>
+      <li>
+        <a href="/users" class="<%= currentPath.startsWith('/users') ? 'active' : '' %>" aria-label="Users">
+          <i class="fa fa-users"></i>
+          <span>Users</span>
+        </a>
+      </li>
+      <li>
+        <a href="/media" class="<%= currentPath.startsWith('/media') ? 'active' : '' %>" aria-label="Media">
+          <i class="fa fa-photo-film"></i>
+          <span>Media</span>
+        </a>
+      </li>
+      <li>
+        <a href="/settings" class="<%= currentPath.startsWith('/settings') ? 'active' : '' %>" aria-label="Settings">
+          <i class="fa fa-gear"></i>
+          <span>Settings</span>
+        </a>
+      </li>
+      <li>
+        <a href="/profile" class="<%= currentPath.startsWith('/profile') ? 'active' : '' %>" aria-label="Profile">
+          <i class="fa fa-user"></i>
+          <span>Profile</span>
+        </a>
+      </li>
+    </ul>
+  </nav>
 </main>
 <link rel="stylesheet" href="/static/css/style.css" />
 <script defer src="/shared/client/clientLogger.js"></script>

@@ -5,7 +5,7 @@
 body { font-family: var(--font-stack); background: var(--color-bg); color: var(--color-text); margin:0; }
 
 /* Panels */
-.admin-main { max-width:var(--layout-max-width); margin:1rem auto 2.5rem; padding:0 1rem; }
+.admin-main { max-width:var(--layout-max-width); margin:1rem auto 0; padding:0 1rem var(--bottom-nav-height); }
 .panel { background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-md); padding:1rem 1.1rem 1.25rem; box-shadow:var(--shadow-sm); }
 .panel + .panel { margin-top:1.25rem; }
 .panel-title { margin:0 0 .75rem; font-size:1.05rem; font-weight:600; letter-spacing:.25px; }
