@@ -20,6 +20,7 @@
         <h2 id="authTitle" class="auth-title">Admin Login</h2>
         <div class="auth-tabs" role="tablist" aria-label="Authentication">
           <button class="auth-tab active" role="tab" aria-selected="true" aria-controls="authLoginPanel" id="authLoginTab">Log in</button>
+          <button class="auth-tab" role="tab" aria-selected="false" aria-controls="authSignupPanel" id="authSignupTab" hidden>Sign up</button>
         </div>
       </div>
       <div class="auth-body">
@@ -35,6 +36,20 @@
           <div class="auth-actions">
             <button type="button" class="btn-success-solid auth-submit" data-mode="login">Log in</button>
           </div>
+        </form>
+        <form id="authSignupPanel" class="auth-form" role="tabpanel" aria-labelledby="authSignupTab" hidden>
+          <div class="auth-field">
+            <label for="signupEmail">Email</label>
+            <input id="signupEmail" type="email" class="auth-input" placeholder="admin@example.com" autocomplete="email">
+          </div>
+          <div class="auth-field">
+            <label for="signupPassword">Password</label>
+            <input id="signupPassword" type="password" class="auth-input" placeholder="Create password (min 6)" autocomplete="new-password">
+          </div>
+          <div class="auth-actions">
+            <button type="button" class="btn-info auth-submit" data-mode="signup">Create admin</button>
+          </div>
+          <p class="text-dim" style="margin:.5rem 0 0 .15rem; font-size:.6rem;">First account will be granted admin role automatically.</p>
         </form>
       </div>
       <p class="auth-note text-dim" style="margin:.75rem 0 0 .25rem; font-size:.65rem;">Sign up disabled for admin panel.</p>
@@ -62,8 +77,24 @@
       }).catch(()=> fallbackTimer = setTimeout(fallbackCheck, CHECK_INTERVAL));
     }
     window.addEventListener('auth:login-success', ()=>{ window.location.replace('/dashboard'); });
-    openLogin();
-    fallbackCheck();
+
+    // Bootstrap check: if no admin exists enable signup tab + panel
+    fetch('/auth/bootstrap/admin-needed').then(r=>r.json().catch(()=>({}))).then(j=>{
+      if(j && j.adminNeeded){
+        const signupTab=document.getElementById('authSignupTab');
+        const signupPanel=document.getElementById('authSignupPanel');
+        if(signupTab && signupPanel){
+          signupTab.hidden=false; signupPanel.hidden=true; // keep login active initially
+          const note=document.querySelector('.auth-note'); if(note) note.textContent='Create the first admin account.';
+        }
+      } else {
+        // Remove signup panel entirely if not needed
+        const signupTab=document.getElementById('authSignupTab'); if(signupTab) signupTab.remove();
+        const signupPanel=document.getElementById('authSignupPanel'); if(signupPanel) signupPanel.remove();
+      }
+      openLogin();
+      fallbackCheck();
+    }).catch(()=>{ openLogin(); fallbackCheck(); });
   })();
   </script>
 </body>
