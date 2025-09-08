@@ -80,10 +80,24 @@ app.use(express.json());
 app.use((req, res, next) => {
   res.locals.siteTitle = 'NudeAdmin';
   res.locals.currentPath = req.path;
+  // Disable signup in shared header for admin panel
+  res.locals.disableSignup = true;
   next();
 });
 
-// Routes
+// Auth gate middleware – allow auth endpoints & health without session
+function authGate(req, res, next){
+  if (req.session?.user?.id) return next();
+  // Allow login endpoints, static assets, health, and socket.io
+  if (req.path.startsWith('/auth') || req.path.startsWith('/static') || req.path.startsWith('/shared') || req.path.startsWith('/health') || req.path.startsWith('/socket.io')) {
+    return next();
+  }
+  // Render login page (minimal layout) – supply flag for header
+  return res.status(200).render('login', { title: 'Admin Login', isLoginPage: true });
+}
+app.use(authGate);
+
+// Routes (protected by authGate)
 app.get('/', (req, res) => res.redirect('/users'));
 app.get('/users', (req, res) => { res.render('users', { title: 'Users' }); });
 app.get('/media', (req, res) => { res.render('media', { title: 'Media' }); });

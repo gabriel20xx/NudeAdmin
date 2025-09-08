@@ -1,0 +1,23 @@
+<% layout('partials/layout') %>
+<section class="panel" style="max-width:480px;margin:2rem auto 0;">
+  <h1 class="panel-title">Admin Login</h1>
+  <p class="text-dim" style="margin-top:-.35rem;margin-bottom:1rem;">Authenticate to access the admin dashboard.</p>
+  <div class="panel-body">
+    <button id="openLoginModal" class="btn-accent" type="button" style="width:100%;">Open Login</button>
+  </div>
+</section>
+<script>
+(function(){
+  const btn = document.getElementById('openLoginModal');
+  function trigger(){
+    const opener = document.getElementById('authOpenBtn');
+    if(opener){ opener.click(); }
+  }
+  if(btn) btn.addEventListener('click', trigger);
+  // Auto-open on first load
+  if(!sessionStorage.getItem('adminLoginModalShown')){
+    sessionStorage.setItem('adminLoginModalShown','1');
+    setTimeout(trigger, 50);
+  }
+})();
+</script>
