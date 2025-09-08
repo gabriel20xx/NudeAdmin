@@ -12,6 +12,34 @@
 </head>
 <body style="margin:0;">
   <div id="toast-root" class="toast-root" aria-live="polite" aria-atomic="false"></div>
+  <!-- Auth overlay markup (signup disabled in admin) -->
+  <div id="authOverlay" class="auth-overlay" role="dialog" aria-modal="true" aria-labelledby="authTitle" hidden>
+    <div class="auth-modal" role="document">
+      <button class="auth-close" type="button" aria-label="Close">✕</button>
+      <div class="auth-header">
+        <h2 id="authTitle" class="auth-title">Admin Login</h2>
+        <div class="auth-tabs" role="tablist" aria-label="Authentication">
+          <button class="auth-tab active" role="tab" aria-selected="true" aria-controls="authLoginPanel" id="authLoginTab">Log in</button>
+        </div>
+      </div>
+      <div class="auth-body">
+        <form id="authLoginPanel" class="auth-form" role="tabpanel" aria-labelledby="authLoginTab">
+          <div class="auth-field">
+            <label for="loginEmail">Email</label>
+            <input id="loginEmail" type="email" class="auth-input" placeholder="admin@example.com" autocomplete="username">
+          </div>
+          <div class="auth-field">
+            <label for="loginPassword">Password</label>
+            <input id="loginPassword" type="password" class="auth-input" placeholder="••••••••" autocomplete="current-password">
+          </div>
+          <div class="auth-actions">
+            <button type="button" class="btn-success-solid auth-submit" data-mode="login">Log in</button>
+          </div>
+        </form>
+      </div>
+      <p class="auth-note text-dim" style="margin:.75rem 0 0 .25rem; font-size:.65rem;">Sign up disabled for admin panel.</p>
+    </div>
+  </div>
   <script>
   (function(){
     function openLogin(){
