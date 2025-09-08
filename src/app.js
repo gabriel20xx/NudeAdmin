@@ -1,5 +1,7 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
+import { mountTheme } from '../../NudeShared/server/theme/mountTheme.js';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import Logger from '../../NudeShared/server/logger/serverLogger.js';
@@ -67,6 +69,9 @@ app.use('/static', express.static(path.join(__dirname, 'public')));
 // Attempt to mount shared theme & client scripts
 const sharedDir = process.env.NUDESHARED_DIR || path.resolve(PROJECT_ROOT, '..', 'NudeShared');
 app.use('/shared', express.static(sharedDir));
+
+// Unified theme mount
+mountTheme(app, { projectDir: path.join(__dirname), sharedDir, logger: console });
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
