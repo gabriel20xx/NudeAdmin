@@ -1,0 +1,32 @@
+/* NudeAdmin stylesheet aligned with other apps */
+@import url('/assets/theme.css');
+
+/* Base adjustments (theme.css already defines variables & body defaults) */
+body { font-family: var(--font-stack); background: var(--color-bg); color: var(--color-text); margin:0; }
+
+/* Panels */
+.admin-main { max-width:var(--layout-max-width); margin:1rem auto 2.5rem; padding:0 1rem; }
+.panel { background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-md); padding:1rem 1.1rem 1.25rem; box-shadow:var(--shadow-sm); }
+.panel + .panel { margin-top:1.25rem; }
+.panel-title { margin:0 0 .75rem; font-size:1.05rem; font-weight:600; letter-spacing:.25px; }
+.panel-body .placeholder { padding:.75rem; background:var(--color-surface-alt); border:1px dashed var(--color-border); border-radius:var(--radius-sm); font-size:.8rem; color:var(--color-text-dim); }
+
+/* Settings form */
+.settings-form { display:flex; flex-direction:column; gap:.85rem; max-width:520px; }
+.settings-form input[type=text], .settings-form input[type=number] { width:100%; padding:.55rem .65rem; border:1px solid var(--color-border); background:var(--color-input-bg); color:var(--color-text); border-radius:var(--radius-sm); font-size:.8rem; }
+.settings-form input:focus { outline:none; box-shadow:var(--shadow-focus-soft); border-color:var(--color-accent-glow); }
+.btn-accent { display:inline-block; padding:.55rem 1rem; border:none; border-radius:var(--radius-sm); cursor:pointer; font-size:.8rem; font-weight:600; letter-spacing:.5px; }
+
+/* Admin sub-navigation (sits below global shared header) */
+.admin-subnav { display:flex; gap:.4rem; margin:0 0 1rem; padding:.45rem; background:rgba(30,32,38,0.75); backdrop-filter:blur(14px) saturate(160%); -webkit-backdrop-filter:blur(14px) saturate(160%); border:1px solid var(--color-border); border-radius:var(--radius-md); box-shadow:var(--shadow-xs,0 1px 2px rgba(0,0,0,.4)); overflow-x:auto; -webkit-overflow-scrolling:touch; }
+:root[data-theme='light'] .admin-subnav { background: rgba(255,255,255,0.88); }
+.admin-subnav .subnav-link { position:relative; display:inline-flex; align-items:center; gap:.4rem; padding:.5rem .85rem; font-size:.7rem; line-height:1; font-weight:650; letter-spacing:.45px; text-decoration:none; color:var(--color-text-dim); background:transparent; border-radius:var(--radius-sm); transition:background .15s, color .15s, box-shadow .2s; }
+.admin-subnav .subnav-link:hover { background:var(--color-surface-alt); color:var(--color-text); }
+.admin-subnav .subnav-link.active { background:var(--gradient-accent); color:#182028; box-shadow:0 0 0 1px rgba(255,255,255,.12), var(--shadow-accent-glow); }
+.admin-subnav .subnav-link.active::after { content:''; position:absolute; inset:0; border:1px solid rgba(0,0,0,.22); border-radius:inherit; pointer-events:none; mix-blend-mode:overlay; }
+
+.admin-content { animation:fadeIn .25s ease; }
+@keyframes fadeIn { from { opacity:0; transform:translateY(4px);} to { opacity:1; transform:translateY(0);} }
+
+/* Responsive tweaks */
+@media (max-width:700px){ .admin-subnav { flex-wrap:nowrap; } }
