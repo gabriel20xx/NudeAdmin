@@ -1,17 +1,17 @@
 <%- include('../../../../NudeShared/views/shared/header', { siteTitle: (siteTitle||'Nude Platform'), title }) %>
 <main class="admin-main" style="padding-top:var(--topbar-height); padding-bottom:var(--bottom-nav-height);">
-  <nav class="admin-subnav">
-    <a href="/users" class="subnav-link <%= currentPath.startsWith('/users') ? 'active' : '' %>">Users</a>
-    <a href="/media" class="subnav-link <%= currentPath.startsWith('/media') ? 'active' : '' %>">Media</a>
-    <a href="/settings" class="subnav-link <%= currentPath.startsWith('/settings') ? 'active' : '' %>">Settings</a>
-    <a href="/profile" class="subnav-link <%= currentPath.startsWith('/profile') ? 'active' : '' %>">Profile</a>
-  </nav>
   <div class="admin-content">
     <%- body %>
   </div>
   <!-- Bottom Tab Navigation (shared style) -->
   <nav class="bottom-nav" role="navigation" aria-label="Primary">
     <ul>
+      <li>
+        <a href="/dashboard" class="<%= currentPath.startsWith('/dashboard') ? 'active' : '' %>" aria-label="Dashboard">
+          <i class="fa fa-gauge"></i>
+          <span>Dashboard</span>
+        </a>
+      </li>
       <li>
         <a href="/users" class="<%= currentPath.startsWith('/users') ? 'active' : '' %>" aria-label="Users">
           <i class="fa fa-users"></i>

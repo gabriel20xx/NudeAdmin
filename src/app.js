@@ -98,7 +98,8 @@ function authGate(req, res, next){
 app.use(authGate);
 
 // Routes (protected by authGate)
-app.get('/', (req, res) => res.redirect('/users'));
+app.get('/', (req, res) => res.redirect('/dashboard'));
+app.get('/dashboard', (req, res) => { res.render('dashboard', { title: 'Dashboard' }); });
 app.get('/users', (req, res) => { res.render('users', { title: 'Users' }); });
 app.get('/media', (req, res) => { res.render('media', { title: 'Media' }); });
 app.get('/settings', (req, res) => { res.render('settings', { title: 'Settings' }); });

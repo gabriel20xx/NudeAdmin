@@ -1,23 +1,42 @@
-<% layout('partials/layout') %>
-<section class="panel" style="max-width:480px;margin:2rem auto 0;">
-  <h1 class="panel-title">Admin Login</h1>
-  <p class="text-dim" style="margin-top:-.35rem;margin-bottom:1rem;">Authenticate to access the admin dashboard.</p>
-  <div class="panel-body">
-    <button id="openLoginModal" class="btn-accent" type="button" style="width:100%;">Open Login</button>
-  </div>
-</section>
-<script>
-(function(){
-  const btn = document.getElementById('openLoginModal');
-  function trigger(){
-    const opener = document.getElementById('authOpenBtn');
-    if(opener){ opener.click(); }
-  }
-  if(btn) btn.addEventListener('click', trigger);
-  // Auto-open on first load
-  if(!sessionStorage.getItem('adminLoginModalShown')){
-    sessionStorage.setItem('adminLoginModalShown','1');
-    setTimeout(trigger, 50);
-  }
-})();
-</script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>NudeAdmin - Login</title>
+  <link rel="stylesheet" href="/assets/theme.css" />
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <script defer src="/shared/client/toast.js"></script>
+  <script defer src="/shared/client/auth-modal.js"></script>
+</head>
+<body style="margin:0;">
+  <div id="toast-root" class="toast-root" aria-live="polite" aria-atomic="false"></div>
+  <script>
+  (function(){
+    function openLogin(){
+      const opener = document.getElementById('authOpenBtn');
+      if(opener) opener.click();
+    }
+    // Inject minimal button for auth-modal.js expectations
+    const btn=document.createElement('button');
+    btn.id='authOpenBtn';
+    btn.type='button';
+    btn.style.display='none';
+    document.body.appendChild(btn);
+    // Observe login success via polling /auth/me after auth-modal sets local flag
+    const CHECK_INTERVAL=2500;
+    let fallbackTimer;
+    function fallbackCheck(){
+      fetch('/auth/me').then(r=>r.json().catch(()=>({}))).then(j=>{
+        if(j && j.user){ window.location.replace('/dashboard'); }
+        else fallbackTimer = setTimeout(fallbackCheck, CHECK_INTERVAL);
+      }).catch(()=> fallbackTimer = setTimeout(fallbackCheck, CHECK_INTERVAL));
+    }
+    window.addEventListener('auth:login-success', ()=>{ window.location.replace('/dashboard'); });
+    openLogin();
+    fallbackCheck();
+  })();
+  </script>
+</body>
+</html>
