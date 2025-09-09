@@ -18,13 +18,9 @@
       <!-- Close button intentionally removed for admin bootstrap/login lockdown -->
       <div class="auth-header">
         <h2 id="authTitle" class="auth-title">Admin Login</h2>
-        <div class="auth-tabs" role="tablist" aria-label="Authentication">
-          <button class="auth-tab active" role="tab" aria-selected="true" aria-controls="authLoginPanel" id="authLoginTab">Log in</button>
-          <button class="auth-tab" role="tab" aria-selected="false" aria-controls="authSignupPanel" id="authSignupTab" hidden>Sign up</button>
-        </div>
       </div>
       <div class="auth-body">
-        <form id="authLoginPanel" class="auth-form" role="tabpanel" aria-labelledby="authLoginTab">
+  <form id="authLoginPanel" class="auth-form" role="tabpanel" aria-labelledby="authTitle">
           <div class="auth-field">
             <label for="loginEmail">Email or Username</label>
             <input id="loginEmail" type="text" class="auth-input" placeholder="admin@example.com or admin" autocomplete="username">
@@ -37,7 +33,7 @@
             <button type="button" class="btn-success-solid auth-submit" data-mode="login">Log in</button>
           </div>
         </form>
-        <form id="authSignupPanel" class="auth-form" role="tabpanel" aria-labelledby="authSignupTab" hidden>
+  <form id="authSignupPanel" class="auth-form" role="tabpanel" aria-labelledby="authTitle" hidden>
           <div class="auth-field">
             <label for="signupEmail">Email</label>
             <input id="signupEmail" type="email" class="auth-input" placeholder="admin@example.com" autocomplete="email">
@@ -69,7 +65,10 @@
           <p class="text-dim" style="margin:.5rem 0 0 .15rem; font-size:.6rem;">First account will be granted admin role automatically.</p>
         </form>
       </div>
-      <p class="auth-note text-dim" style="margin:.75rem 0 0 .25rem; font-size:.65rem;">Sign up disabled for admin panel.</p>
+      <div class="auth-switch">
+        <button type="button" id="authSwitch" class="linklike" style="background:none;border:none;color:var(--color-accent);cursor:pointer;padding:.25rem .15rem;">Don't have an account? Sign up</button>
+      </div>
+      <p class="auth-note text-dim" style="margin:.5rem 0 0 .25rem; font-size:.65rem;">Sign up disabled for admin panel.</p>
     </div>
   </div>
   <script>
@@ -95,28 +94,25 @@
     }
     window.addEventListener('auth:login-success', ()=>{ window.location.replace('/dashboard'); });
 
-    // Bootstrap check: if no admin exists enable signup tab + panel
+    // Bootstrap check: if no admin exists enable signup panel and show switch; else hide switch
     fetch('/auth/bootstrap/admin-needed').then(r=>r.json().catch(()=>({}))).then(j=>{
-      const signupTab=document.getElementById('authSignupTab');
       const signupPanel=document.getElementById('authSignupPanel');
-      const loginTab=document.getElementById('authLoginTab');
       const loginPanel=document.getElementById('authLoginPanel');
       const note=document.querySelector('.auth-note');
+      const switchBtn=document.getElementById('authSwitch');
       if(j && j.adminNeeded){
-        // Enable signup only, hide login tab/panel and auto-open signup
-        if(signupTab && signupPanel){
-          signupTab.hidden=true; // hide the tab label to prevent switching
-          signupPanel.hidden=false; signupPanel.setAttribute('aria-hidden','false');
-        }
-        if(loginTab){ loginTab.hidden=true; }
+        try{ localStorage.setItem('authLastTab','1'); }catch(_){ }
+        // Enable signup only, hide login panel and auto-open signup
+        if(signupPanel){ signupPanel.hidden=false; signupPanel.setAttribute('aria-hidden','false'); }
         if(loginPanel){ loginPanel.hidden=true; }
         if(note) note.textContent='Create the first admin account (required).';
+        if(switchBtn){ switchBtn.style.display='none'; }
         document.getElementById('signupEmail')?.focus();
       } else {
         // Normal login only (signup removed) once an admin exists
-        if(signupTab) signupTab.remove();
         if(signupPanel) signupPanel.remove();
         if(note) note.textContent='Sign up disabled for admin panel.';
+        if(switchBtn){ switchBtn.style.display='none'; }
         document.getElementById('loginEmail')?.focus();
       }
       openLogin();
