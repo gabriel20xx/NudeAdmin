@@ -14,8 +14,8 @@
   <div id="toast-root" class="toast-root" aria-live="polite" aria-atomic="false"></div>
   <!-- Auth overlay markup (signup disabled in admin) -->
   <div id="authOverlay" class="auth-overlay" role="dialog" aria-modal="true" aria-labelledby="authTitle" hidden>
-    <div class="auth-modal" role="document">
-      <button class="auth-close" type="button" aria-label="Close">✕</button>
+    <div class="auth-modal" role="document" data-admin-bootstrap>
+      <!-- Close button intentionally removed for admin bootstrap/login lockdown -->
       <div class="auth-header">
         <h2 id="authTitle" class="auth-title">Admin Login</h2>
         <div class="auth-tabs" role="tablist" aria-label="Authentication">
@@ -26,8 +26,8 @@
       <div class="auth-body">
         <form id="authLoginPanel" class="auth-form" role="tabpanel" aria-labelledby="authLoginTab">
           <div class="auth-field">
-            <label for="loginEmail">Email</label>
-            <input id="loginEmail" type="email" class="auth-input" placeholder="admin@example.com" autocomplete="username">
+            <label for="loginEmail">Email or Username</label>
+            <input id="loginEmail" type="text" class="auth-input" placeholder="admin@example.com or admin" autocomplete="username">
           </div>
           <div class="auth-field">
             <label for="loginPassword">Password</label>
@@ -43,8 +43,18 @@
             <input id="signupEmail" type="email" class="auth-input" placeholder="admin@example.com" autocomplete="email">
           </div>
           <div class="auth-field">
+            <label for="signupUsername">Username</label>
+            <input id="signupUsername" type="text" class="auth-input" placeholder="admin" autocomplete="username">
+          </div>
+          <div class="auth-field">
             <label for="signupPassword">Password</label>
             <input id="signupPassword" type="password" class="auth-input" placeholder="Create password (min 6)" autocomplete="new-password">
+          </div>
+          <div class="auth-field password-strength" aria-live="polite">
+            <div class="pw-meter" id="signupPwMeter" data-score="0">
+              <span class="pw-bar"></span>
+            </div>
+            <small id="signupPwFeedback" class="pw-feedback text-dim">Enter a password</small>
           </div>
           <div class="auth-actions">
             <button type="button" class="btn-info auth-submit" data-mode="signup">Create admin</button>
@@ -80,17 +90,27 @@
 
     // Bootstrap check: if no admin exists enable signup tab + panel
     fetch('/auth/bootstrap/admin-needed').then(r=>r.json().catch(()=>({}))).then(j=>{
+      const signupTab=document.getElementById('authSignupTab');
+      const signupPanel=document.getElementById('authSignupPanel');
+      const loginTab=document.getElementById('authLoginTab');
+      const loginPanel=document.getElementById('authLoginPanel');
+      const note=document.querySelector('.auth-note');
       if(j && j.adminNeeded){
-        const signupTab=document.getElementById('authSignupTab');
-        const signupPanel=document.getElementById('authSignupPanel');
+        // Enable signup only, hide login tab/panel and auto-open signup
         if(signupTab && signupPanel){
-          signupTab.hidden=false; signupPanel.hidden=true; // keep login active initially
-          const note=document.querySelector('.auth-note'); if(note) note.textContent='Create the first admin account.';
+          signupTab.hidden=true; // hide the tab label to prevent switching
+          signupPanel.hidden=false; signupPanel.setAttribute('aria-hidden','false');
         }
+        if(loginTab){ loginTab.hidden=true; }
+        if(loginPanel){ loginPanel.hidden=true; }
+        if(note) note.textContent='Create the first admin account (required).';
+        document.getElementById('signupEmail')?.focus();
       } else {
-        // Remove signup panel entirely if not needed
-        const signupTab=document.getElementById('authSignupTab'); if(signupTab) signupTab.remove();
-        const signupPanel=document.getElementById('authSignupPanel'); if(signupPanel) signupPanel.remove();
+        // Normal login only (signup removed) once an admin exists
+        if(signupTab) signupTab.remove();
+        if(signupPanel) signupPanel.remove();
+        if(note) note.textContent='Sign up disabled for admin panel.';
+        document.getElementById('loginEmail')?.focus();
       }
       openLogin();
       fallbackCheck();
