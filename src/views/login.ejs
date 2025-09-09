@@ -14,7 +14,7 @@
   <div id="toast-root" class="toast-root" aria-live="polite" aria-atomic="false"></div>
   <!-- Auth overlay markup (signup disabled in admin) -->
   <div id="authOverlay" class="auth-overlay" role="dialog" aria-modal="true" aria-labelledby="authTitle" hidden>
-    <div class="auth-modal" role="document" data-admin-bootstrap>
+    <div id="authModal" class="auth-modal" role="document">
       <!-- Close button intentionally removed for admin bootstrap/login lockdown -->
       <div class="auth-header">
         <h2 id="authTitle" class="auth-title">Admin Login</h2>
@@ -100,7 +100,9 @@
       const loginPanel=document.getElementById('authLoginPanel');
       const note=document.querySelector('.auth-note');
       const switchBtn=document.getElementById('authSwitch');
+      const modalEl = document.getElementById('authModal');
       if(j && j.adminNeeded){
+        if(modalEl) modalEl.setAttribute('data-admin-bootstrap','');
         try{ localStorage.setItem('authLastTab','1'); }catch(_){ }
         // Enable signup only, hide login panel and auto-open signup
         if(signupPanel){ signupPanel.hidden=false; signupPanel.setAttribute('aria-hidden','false'); }
@@ -109,6 +111,7 @@
         if(switchBtn){ switchBtn.style.display='none'; }
         document.getElementById('signupEmail')?.focus();
       } else {
+        if(modalEl) modalEl.removeAttribute('data-admin-bootstrap');
         // Normal login only (signup removed) once an admin exists
         if(signupPanel) signupPanel.remove();
         if(note) note.textContent='Sign up disabled for admin panel.';
