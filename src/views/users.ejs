@@ -3,6 +3,202 @@
   <h1 class="panel-title">Users</h1>
   <p class="text-dim">Manage platform users, roles, and status.</p>
   <div class="panel-body" id="usersPanel">
-    <div class="placeholder">Loading users...</div>
+    <div class="toolbar" style="display:flex; gap:.5rem; justify-content:center; align-items:center; flex-wrap:wrap;">
+      <input type="text" id="userSearch" placeholder="Search by email or username..." style="min-width:260px;" />
+      <div class="actions" style="display:flex; gap:.35rem; align-items:center;">
+        <select id="userBulkAction">
+          <option value="">Bulk Action</option>
+          <option value="disable">Disable</option>
+          <option value="enable">Enable</option>
+          <option value="delete">Delete</option>
+          <option value="reset_mfa">Reset TOTP</option>
+          <option value="reset_password">Reset Password</option>
+          <option value="change_role">Change Role</option>
+        </select>
+        <select id="userRoleInput" style="display:none;">
+          <option value="user">user</option>
+          <option value="moderator">moderator</option>
+          <option value="admin">admin</option>
+        </select>
+        <button id="userApply" class="btn-accent" disabled>Apply</button>
+      </div>
+    </div>
+
+    <div id="usersList" class="users-list" style="margin-top:.75rem; display:flex; flex-direction:column; gap:.5rem;">
+      <div class="placeholder">Loading users...</div>
+    </div>
   </div>
 </section>
+
+<script>
+(function(){
+  const toast = window.toast || { info:console.log, error:console.error, success:console.log };
+  const panel = document.getElementById('usersPanel');
+  const listRoot = document.getElementById('usersList');
+  const searchInput = document.getElementById('userSearch');
+  const bulkSel = document.getElementById('userBulkAction');
+  const bulkRole = document.getElementById('userRoleInput');
+  const bulkApply = document.getElementById('userApply');
+  let term = '';
+
+  const api = async (path, opts={})=>{
+    const res = await fetch(path, { headers:{ 'Content-Type':'application/json' }, ...opts });
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok || data.success===false) throw new Error(data.error||res.statusText);
+    return data;
+  };
+
+  function fmtTime(t){ if(!t) return ''; try { const d=new Date(t); return d.toISOString().replace('T',' ').slice(0,19); } catch { return String(t); } }
+
+  async function load(){
+    listRoot.innerHTML = '<div class="placeholder">Loading users...</div>';
+    try{
+      const d = await api(`/api/admin/users?search=${encodeURIComponent(term)}`);
+      let users = d.users || [];
+      // Client-side filter as fallback to ensure filtering works even if server ignores search
+      if(term){
+        const q = term.toLowerCase();
+        users = users.filter(u => (u.username||'').toLowerCase().includes(q) || (u.email||'').toLowerCase().includes(q));
+      }
+      if(!users.length){ listRoot.innerHTML = '<div class="placeholder">No users found</div>'; wire(); return; }
+      listRoot.innerHTML = users.map(u=>renderUserItem(u)).join('');
+      wire();
+    }catch(e){ listRoot.innerHTML = `<div class="error">${e.message}</div>`; }
+  }
+
+  function renderUserItem(u){
+    const roleOpts = ['user','moderator','admin'].map(r=>`<option value="${r}" ${u.role===r?'selected':''}>${r}</option>`).join('');
+    return `
+  <div class="user-item" data-id="${u.id}" style="display:grid; grid-template-columns: 28px 1fr auto; gap:.65rem; align-items:center; border:1px solid var(--color-border); border-radius:var(--radius-md); padding:.6rem .7rem; background:var(--color-surface);">
+        <div><input type="checkbox" class="userRowChk" /></div>
+        <div class="user-main" style="display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:.5rem; text-align:left;">
+          <div>
+            <div><small class="text-dim">Username</small></div>
+            <div><input class="u-username" type="text" value="${escapeHtml(u.username||'')}" style="width:100%;" /></div>
+          </div>
+          <div>
+            <div><small class="text-dim">Email</small></div>
+            <div><input class="u-email" type="email" value="${escapeHtml(u.email||'')}" style="width:100%;" /></div>
+          </div>
+          <div>
+            <div><small class="text-dim">Role</small></div>
+            <div><select class="u-role">${roleOpts}</select></div>
+          </div>
+          <div>
+            <div><small class="text-dim">Status</small></div>
+            <div>${u.disabled?'<span class="badge red">Disabled</span>':'Active'} · MFA: ${u.mfaEnabled?'On':'Off'}</div>
+          </div>
+
+          <div>
+            <div><small class="text-dim">Generated</small></div>
+            <div><button class="linklike u-gen" type="button" title="Show generated">${u.generatedCount||0}</button></div>
+          </div>
+          <div>
+            <div><small class="text-dim">Liked</small></div>
+            <div><button class="linklike u-liked" type="button" title="Show liked">${u.likedCount||0}</button></div>
+          </div>
+          <div>
+            <div><small class="text-dim">Saved</small></div>
+            <div><button class="linklike u-saved" type="button" title="Show saved">${u.savedCount||0}</button></div>
+          </div>
+          <div>
+            <div><small class="text-dim">Timestamps</small></div>
+            <div>Last login: ${escapeHtml(fmtTime(u.lastLoginAt))||'-'}<br/>Sign up: ${escapeHtml(fmtTime(u.createdAt))||'-'}</div>
+          </div>
+        </div>
+        <div class="user-actions" style="display:flex; gap:.4rem; flex-direction:column;">
+          <button class="btn-info u-save" type="button">Save</button>
+          <button class="btn-info u-reset-pw" type="button" title="Mark password for reset">Reset PW</button>
+          <button class="btn-info u-reset-mfa" type="button">Reset TOTP</button>
+          <button class="btn-danger-solid u-delete" type="button">Delete</button>
+        </div>
+        <div class="user-details" style="grid-column:1/-1; display:none; border-top:1px dashed var(--color-border); padding-top:.5rem;">
+          <!-- populated on demand -->
+        </div>
+      </div>`;
+  }
+
+  function wire(){
+    // search
+    let t; searchInput.oninput = ()=>{ clearTimeout(t); t=setTimeout(()=>{ term = searchInput.value.trim(); load(); }, 250); };
+    // bulk
+    function updateBulk(){
+      const ids = selectedIds();
+      bulkApply.disabled = ids.length===0 || !bulkSel.value || (bulkSel.value==='change_role' && !bulkRole.value);
+      bulkRole.style.display = bulkSel.value==='change_role' ? '' : 'none';
+    }
+    bulkSel.onchange = updateBulk; bulkRole.onchange = updateBulk; updateBulk();
+    bulkApply.onclick = async ()=>{
+      const ids = selectedIds(); if(!ids.length) return;
+      const action = bulkSel.value; const body = { action, ids };
+      if(action==='change_role') body.role = bulkRole.value;
+      try{ await api('/api/admin/users/actions', { method:'POST', body: JSON.stringify(body) }); toast.success('Bulk action applied'); load(); }
+      catch(e){ toast.error(e.message); }
+    };
+    // per-user actions
+    listRoot.querySelectorAll('.user-item').forEach(row=>{
+      const id = Number(row.dataset.id);
+      const saveBtn = row.querySelector('.u-save');
+      const resetPwBtn = row.querySelector('.u-reset-pw');
+      const resetMfaBtn = row.querySelector('.u-reset-mfa');
+      const delBtn = row.querySelector('.u-delete');
+      const inpUser = row.querySelector('.u-username');
+      const inpEmail = row.querySelector('.u-email');
+      const selRole = row.querySelector('.u-role');
+      const btnGen = row.querySelector('.u-gen');
+      const btnLiked = row.querySelector('.u-liked');
+      const btnSaved = row.querySelector('.u-saved');
+      saveBtn.onclick = async ()=>{
+        try { await api(`/api/admin/users/${id}/update`, { method:'POST', body: JSON.stringify({ username: inpUser.value.trim(), email: inpEmail.value.trim(), role: selRole.value }) }); toast.success('User updated'); }
+        catch(e){ toast.error(e.message); }
+      };
+      resetPwBtn.onclick = async ()=>{ try{ await api('/api/admin/users/actions', { method:'POST', body: JSON.stringify({ action:'reset_password', ids:[id] }) }); toast.info('Password reset flagged'); }catch(e){ toast.error(e.message);} };
+      resetMfaBtn.onclick = async ()=>{ try{ await api('/api/admin/users/actions', { method:'POST', body: JSON.stringify({ action:'reset_mfa', ids:[id] }) }); toast.info('TOTP reset'); }catch(e){ toast.error(e.message);} };
+      delBtn.onclick = async ()=>{ if(!confirm('Delete this user?')) return; try{ await api('/api/admin/users/actions', { method:'POST', body: JSON.stringify({ action:'delete', ids:[id] }) }); toast.success('User deleted'); load(); }catch(e){ toast.error(e.message);} };
+      const showMedia = async (kind)=>{
+        const details = row.querySelector('.user-details');
+        // toggle if already open for same kind
+        if(details.dataset.kind === kind && details.style.display !== 'none'){
+          details.style.display = 'none';
+          return;
+        }
+        details.innerHTML = '<div class="text-dim">Loading...</div>';
+        details.style.display = '';
+        try{
+          const d = await api(`/api/admin/users/${id}/media`);
+          const arr = (kind==='generated'? d.generated : kind==='liked'? d.liked : d.saved) || [];
+          details.dataset.kind = kind;
+          if(!arr.length){ details.innerHTML = `<div class="text-dim">No ${kind} items</div>`; return; }
+          const itemToText = (m)=>{
+            const url = m.publicUrl || m.url || m.imageUrl || m.path || '';
+            const label = m.title || m.prompt || m.filename || m.name || (url ? url.split(/[\\/]/).pop() : `#${m.id||''}`);
+            return `<li style="margin:.25rem 0;">${escapeHtml(label)}${url?` — <a href="${url}" target="_blank" rel="noopener">open</a>`:''}</li>`;
+          };
+          details.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:.5rem;">
+              <strong style="text-transform:capitalize;">${kind}</strong>
+              <button type="button" class="btn-ghost" onclick="this.closest('.user-details').style.display='none'">Close</button>
+            </div>
+            <ul style="list-style:disc; text-align:left; margin:.5rem 1.25rem;">${arr.map(itemToText).join('')}</ul>
+          `;
+        }catch(e){ details.innerHTML = `<div class="error">${escapeHtml(e.message)}</div>`; }
+      };
+      btnGen.onclick = ()=> showMedia('generated');
+      btnLiked.onclick = ()=> showMedia('liked');
+      btnSaved.onclick = ()=> showMedia('saved');
+    });
+    // select all wiring
+    const allChk = panel.querySelector('#userSelectAllGlobal');
+    if(allChk){ allChk.onchange = ()=>{ listRoot.querySelectorAll('.userRowChk').forEach(c=> c.checked = allChk.checked); updateBulk(); }; }
+    listRoot.addEventListener('change', (e)=>{ if(e.target.classList.contains('userRowChk')) updateBulk(); });
+  }
+
+  function selectedIds(){ return Array.from(listRoot.querySelectorAll('.userRowChk')).filter(c=>c.checked).map(c=> Number(c.closest('.user-item').dataset.id)); }
+  function escapeHtml(s){ return (s||'').replace(/[&<>"]+/g, ch=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[ch])); }
+
+  // Add a global select all checkbox to toolbar
+  const selAll = document.createElement('label'); selAll.style.marginLeft='.5rem'; selAll.innerHTML = '<input type="checkbox" id="userSelectAllGlobal" /> Select all';
+  panel.querySelector('.toolbar').appendChild(selAll);
+  load();
+})();
+</script>

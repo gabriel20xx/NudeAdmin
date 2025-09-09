@@ -201,8 +201,14 @@
 
   // Init by route
   document.addEventListener('DOMContentLoaded', ()=>{
-    if(location.pathname.startsWith('/users')) loadUsers();
-    if(location.pathname.startsWith('/media')) loadMedia();
+    if(location.pathname.startsWith('/users')){
+      // If the new list-style Users UI (users.ejs) is present, don't overwrite it.
+      if(!document.getElementById('usersList')) loadUsers();
+    }
+    if(location.pathname.startsWith('/media')){
+      // If the new list-style Media UI (media.ejs) is present, don't overwrite it.
+      if(!document.getElementById('mediaList')) loadMedia();
+    }
     if(location.pathname.startsWith('/settings')) loadSettings();
   });
 })();
