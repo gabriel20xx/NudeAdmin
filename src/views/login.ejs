@@ -47,9 +47,16 @@
             <input id="signupUsername" type="text" class="auth-input" placeholder="admin" autocomplete="username">
           </div>
           <div class="auth-field">
-            <label for="signupPassword">Password</label>
+            <label for="signupPassword">Password
+              <span aria-label="Password strength tips" title="Fair: 10+ characters, mix upper/lowercase, a number and a symbol. Strong: 14+ with variety." style="margin-left:.35rem; cursor:help; font-size:.85em; color:var(--color-text-dim);">ⓘ</span>
+            </label>
             <input id="signupPassword" type="password" class="auth-input" placeholder="Create password (min 6)" autocomplete="new-password">
           </div>
+            <div class="auth-field">
+              <label for="signupConfirm">Repeat password</label>
+              <input id="signupConfirm" type="password" class="auth-input" placeholder="Repeat password" autocomplete="new-password">
+              <small id="signupConfirmError" style="color:#e53935; display:none;">Passwords do not match</small>
+            </div>
           <div class="auth-field password-strength" aria-live="polite">
             <div class="pw-meter" id="signupPwMeter" data-score="0">
               <span class="pw-bar"></span>
@@ -57,7 +64,7 @@
             <small id="signupPwFeedback" class="pw-feedback text-dim">Enter a password</small>
           </div>
           <div class="auth-actions">
-            <button type="button" class="btn-info auth-submit" data-mode="signup">Create admin</button>
+            <button type="button" class="btn-info auth-submit" data-mode="signup" disabled>Create admin</button>
           </div>
           <p class="text-dim" style="margin:.5rem 0 0 .15rem; font-size:.6rem;">First account will be granted admin role automatically.</p>
         </form>
