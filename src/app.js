@@ -82,6 +82,9 @@ app.use((req, res, next) => {
   res.locals.currentPath = req.path;
   // Disable signup in shared header for admin panel
   res.locals.disableSignup = true;
+  // Auth state for shared views (e.g., profile.ejs expects isAuthenticated)
+  res.locals.isAuthenticated = !!(req.session?.user?.id);
+  res.locals.user = req.session?.user || null;
   next();
 });
 
