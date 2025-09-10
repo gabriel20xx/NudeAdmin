@@ -4,10 +4,10 @@
   <p class="text-dim">Review and moderate generated media.</p>
   <div class="panel-body" id="mediaPanel">
     <div class="toolbar" style="display:flex; gap:.5rem; justify-content:center; align-items:center; flex-wrap:wrap;">
-      <input type="text" id="mediaSearch" placeholder="Search by title or key..." style="min-width:260px;" />
-      <input type="text" id="mediaCategory" placeholder="Category filter" style="min-width:180px;" />
+      <input type="text" id="mediaSearch" class="auth-input" placeholder="Search by title or key..." style="min-width:260px;" />
+      <input type="text" id="mediaCategory" class="auth-input" placeholder="Category filter" style="min-width:180px;" />
       <div class="actions" style="display:flex; gap:.35rem; align-items:center;">
-        <select id="mediaBulkAction">
+        <select id="mediaBulkAction" class="ui-select">
           <option value="">Bulk Action</option>
           <option value="deactivate">Hide</option>
           <option value="activate">Unhide</option>
@@ -15,8 +15,8 @@
           <option value="set_category">Set Category</option>
           <option value="rename">Rename Title</option>
         </select>
-        <input type="text" id="mediaCategoryInput" placeholder="category" style="width:130px;display:none;" />
-        <input type="text" id="mediaTitleInput" placeholder="title" style="width:180px;display:none;" />
+        <input type="text" id="mediaCategoryInput" class="auth-input" placeholder="category" style="width:130px;display:none;" />
+        <input type="text" id="mediaTitleInput" class="auth-input" placeholder="title" style="width:180px;display:none;" />
         <button id="mediaApply" class="btn-accent" disabled>Apply</button>
       </div>
     </div>
@@ -80,7 +80,7 @@
           <div>
             <div><small class="text-dim">Title</small></div>
             <div style="display:flex; gap:.35rem; align-items:center;">
-              <input class="m-title" type="text" value="${escapeHtml(m.title||'')}" style="width:100%;" />
+              <input class="m-title auth-input" type="text" value="${escapeHtml(m.title||'')}" style="width:100%;" />
               <button class="btn-info m-rename" type="button">Rename</button>
             </div>
           </div>
@@ -91,7 +91,7 @@
           <div>
             <div><small class="text-dim">Category</small></div>
             <div style="display:flex; gap:.35rem; align-items:center;">
-              <input class="m-category" type="text" value="${escapeHtml(m.category||'')}" style="width:100%;" />
+              <input class="m-category auth-input" type="text" value="${escapeHtml(m.category||'')}" style="width:100%;" />
               <button class="btn-info m-setcat" type="button">Set</button>
             </div>
           </div>
@@ -193,7 +193,7 @@
     // select all wiring
     const selAllId = 'mediaSelectAllGlobal';
     if(!document.getElementById(selAllId)){
-      const label = document.createElement('label'); label.style.marginLeft='.5rem'; label.innerHTML = `<input type="checkbox" id="${selAllId}" /> Select all`;
+      const label = document.createElement('label'); label.style.marginLeft='.5rem'; label.innerHTML = `<input type="checkbox" id="${selAllId}" class="ui-checkbox" /> Select all`;
       document.querySelector('#mediaPanel .toolbar').appendChild(label);
     }
     const allChk = document.getElementById(selAllId);

@@ -2,6 +2,17 @@
 <section class="panel">
   <h1 class="panel-title">Dashboard</h1>
   <div class="panel-body">
+    <div class="toolbar" style="display:flex; gap:.5rem; justify-content:center; align-items:center; flex-wrap:wrap; margin-bottom:.75rem;">
+      <input type="text" id="dashFilter" class="auth-input" placeholder="Filter by user or key..." style="min-width:260px;" />
+      <select id="dashPeriod" class="ui-select">
+        <option value="7d">Last 7 days</option>
+        <option value="30d">Last 30 days</option>
+        <option value="all">All time</option>
+      </select>
+      <label style="display:inline-flex; align-items:center; gap:.35rem;">
+        <input type="checkbox" id="dashAutoRefresh" class="ui-checkbox" checked /> Auto refresh
+      </label>
+    </div>
     <div class="stats-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
       <div class="card"><div class="card-body"><div class="stat-label">Total registered users</div><div class="stat-value" id="statUsers">—</div></div></div>
       <div class="card"><div class="card-body"><div class="stat-label">Total generated media</div><div class="stat-value" id="statGenerated">—</div></div></div>
@@ -35,6 +46,6 @@
       byId('statMostLikes', fmtMedia(leaders.mostLikes));
       byId('statMostSaves', fmtMedia(leaders.mostSaves));
       byId('statMostDownloads', fmtMedia(leaders.mostDownloads));
-    }catch(e){ console.error('Dashboard stats failed', e); }
+  }catch(e){ console.error('Dashboard stats failed', e); }
   })();
 </script>
