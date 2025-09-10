@@ -13,39 +13,199 @@
         <input type="checkbox" id="dashAutoRefresh" class="ui-checkbox" checked /> Auto refresh
       </label>
     </div>
-    <div class="stats-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
-      <div class="card"><div class="card-body"><div class="stat-label">Total registered users</div><div class="stat-value" id="statUsers">—</div></div></div>
-      <div class="card"><div class="card-body"><div class="stat-label">Total generated media</div><div class="stat-value" id="statGenerated">—</div></div></div>
-      <div class="card"><div class="card-body"><div class="stat-label">Total viewed media (NudeFlow)</div><div class="stat-value" id="statViewed">—</div></div></div>
-      <div class="card"><div class="card-body"><div class="stat-label">Total downloads</div><div class="stat-value" id="statDownloads">—</div></div></div>
+    <style>
+      .tiles-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+      .tile{background:var(--panel-bg,#0b0b0b);border:1px solid var(--panel-border,#2a2a2a);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px}
+      .tile-title{font-size:.9rem;color:var(--text-muted,#a8a8a8);font-weight:600}
+      .tile-number{font-size:2.25rem;line-height:1.1;font-weight:800;letter-spacing:.2px}
+      .tile-sub{font-size:.82rem;color:var(--text-muted,#9a9a9a);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .tile-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+      .tile-media{position:relative;aspect-ratio:16/9;border-radius:8px;overflow:hidden;background:#0f0f0f;border:1px solid var(--panel-border,#2a2a2a)}
+      .tile-media img{width:100%;height:100%;object-fit:cover;display:block}
+    </style>
+
+    <!-- Totals: title + big number tiles -->
+    <div class="tiles-grid">
+      <div class="tile"><div class="tile-title">Total registered users</div><div class="tile-number" id="statUsers">—</div></div>
+      <div class="tile"><div class="tile-title">Total generated media</div><div class="tile-number" id="statGenerated">—</div></div>
+      <div class="tile"><div class="tile-title">Total viewed media (NudeFlow)</div><div class="tile-number" id="statViewed">—</div></div>
+      <div class="tile"><div class="tile-title">Total downloads</div><div class="tile-number" id="statDownloads">—</div></div>
     </div>
-    <div style="margin-top:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;">
-      <div class="card"><div class="card-body"><div class="stat-label">User with most generations</div><div class="stat-value" id="statTopUser">—</div></div></div>
-      <div class="card"><div class="card-body"><div class="stat-label">Media with most views</div><div class="stat-value" id="statMostViews">—</div></div></div>
-      <div class="card"><div class="card-body"><div class="stat-label">Media with most likes</div><div class="stat-value" id="statMostLikes">—</div></div></div>
-      <div class="card"><div class="card-body"><div class="stat-label">Media with most saves</div><div class="stat-value" id="statMostSaves">—</div></div></div>
-      <div class="card"><div class="card-body"><div class="stat-label">Media with most downloads</div><div class="stat-value" id="statMostDownloads">—</div></div></div>
+
+    <!-- Leaders: either title + big number, or title + image + number -->
+    <div class="tiles-grid" style="margin-top:16px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
+      <!-- Top user: title + number (and small subtitle for name) -->
+      <div class="tile">
+        <div class="tile-title">Top user (generations)</div>
+        <div class="tile-number" id="tileTopUserNumber">—</div>
+        <div class="tile-sub" id="tileTopUserSub">—</div>
+      </div>
+
+      <!-- Media leaders with image + number -->
+      <div class="tile">
+        <div class="tile-title">Most viewed</div>
+        <div class="tile-media"><img id="imgMostViews" alt="Most viewed preview"></div>
+        <div class="tile-row"><div class="tile-sub" id="titleMostViews">—</div><div class="tile-number" id="numMostViews">—</div></div>
+      </div>
+      <div class="tile">
+        <div class="tile-title">Most liked</div>
+        <div class="tile-media"><img id="imgMostLikes" alt="Most liked preview"></div>
+        <div class="tile-row"><div class="tile-sub" id="titleMostLikes">—</div><div class="tile-number" id="numMostLikes">—</div></div>
+      </div>
+      <div class="tile">
+        <div class="tile-title">Most saved</div>
+        <div class="tile-media"><img id="imgMostSaves" alt="Most saved preview"></div>
+        <div class="tile-row"><div class="tile-sub" id="titleMostSaves">—</div><div class="tile-number" id="numMostSaves">—</div></div>
+      </div>
+      <div class="tile">
+        <div class="tile-title">Most downloaded</div>
+        <div class="tile-media"><img id="imgMostDownloads" alt="Most downloaded preview"></div>
+        <div class="tile-row"><div class="tile-sub" id="titleMostDownloads">—</div><div class="tile-number" id="numMostDownloads">—</div></div>
+      </div>
+      <!-- Generation time metrics -->
+      <div class="tile">
+        <div class="tile-title">Avg generation time</div>
+        <div class="tile-number" id="avgGenTime">—</div>
+        <div class="tile-sub">in the selected period</div>
+      </div>
+      <div class="tile">
+        <div class="tile-title">Fastest generation</div>
+        <div class="tile-media"><img id="imgFastest" alt="Fastest generation preview"></div>
+        <div class="tile-row"><div class="tile-sub" id="titleFastest">—</div><div class="tile-number" id="numFastest">—</div></div>
+      </div>
+      <div class="tile">
+        <div class="tile-title">Slowest generation</div>
+        <div class="tile-media"><img id="imgSlowest" alt="Slowest generation preview"></div>
+        <div class="tile-row"><div class="tile-sub" id="titleSlowest">—</div><div class="tile-number" id="numSlowest">—</div></div>
+      </div>
+      <!-- Conversion rates -->
+      <div class="tile">
+        <div class="tile-title">Like conversion</div>
+        <div class="tile-number" id="rateLike">—</div>
+        <div class="tile-sub">likes per view</div>
+      </div>
+      <div class="tile">
+        <div class="tile-title">Save conversion</div>
+        <div class="tile-number" id="rateSave">—</div>
+        <div class="tile-sub">saves per view</div>
+      </div>
+      <div class="tile">
+        <div class="tile-title">Download conversion</div>
+        <div class="tile-number" id="rateDownload">—</div>
+        <div class="tile-sub">downloads per view</div>
+      </div>
     </div>
   </div>
 </section>
 <script>
   (async function(){
-    try{
-      const res = await fetch('/api/admin/stats');
+    const encodePathSegments = (s)=> (typeof s === 'string') ? s.split('/').map(encodeURIComponent).join('/') : '';
+    const toThumbUrl = (key, w=320)=> key ? `/thumbs/output/${encodePathSegments(key)}?w=${w}` : '';
+    const setTileNumber = (id, val)=>{ const el=document.getElementById(id); if(el) el.textContent = (val ?? '—'); };
+    const setTileText = (id, txt)=>{ const el=document.getElementById(id); if(el) el.textContent = (txt ?? '—'); };
+    const setMediaTile = (prefix, row)=>{
+      const img = document.getElementById('img'+prefix);
+      const tTitle = document.getElementById('title'+prefix);
+      const tNum = document.getElementById('num'+prefix);
+      if(row && row.media_key){
+        if(img){ img.src = toThumbUrl(row.media_key, 480); img.alt = row.media_key; }
+        if(tTitle){ tTitle.textContent = row.media_key; }
+        if(tNum){ tNum.textContent = row.count ?? '—'; }
+      } else {
+        if(img){ img.removeAttribute('src'); img.alt = 'No data'; }
+        if(tTitle){ tTitle.textContent = 'No data'; }
+        if(tNum){ tNum.textContent = '—'; }
+      }
+    };
+    const setMs = (id, ms)=>{
+      const el = document.getElementById(id);
+      if(!el){ return; }
+      if(ms==null){ el.textContent='—'; return; }
+      // format ms to s with 2 decimals if >= 1000ms
+      const n = Number(ms);
+      el.textContent = n >= 1000 ? (n/1000).toFixed(2)+'s' : n+'ms';
+    };
+    const setRate = (id, r)=>{
+      const el = document.getElementById(id);
+      if(!el){ return; }
+      if(r==null){ el.textContent='—'; return; }
+      el.textContent = (r*100).toFixed(1)+'%';
+    };
+
+    async function loadStats(){
+      const period = (document.getElementById('dashPeriod')?.value)||'7d';
+      const filter = (document.getElementById('dashFilter')?.value||'').trim();
+      const qs = new URLSearchParams();
+      if (period) qs.set('period', period);
+      if (filter) qs.set('filter', filter);
+      const res = await fetch('/api/admin/stats?'+qs.toString());
       if(!res.ok) throw new Error('Failed to load stats');
-      const js = await res.json();
-      const totals = js.totals||{}; const leaders = js.leaders||{};
-      const byId=(id,v)=>{ const el=document.getElementById(id); if(el) el.textContent = (v ?? '—'); };
-      byId('statUsers', totals.users);
-      byId('statGenerated', totals.generated);
-      byId('statViewed', totals.viewed);
-      byId('statDownloads', totals.downloads);
-      byId('statTopUser', leaders.topUser ? `${leaders.topUser.name||('User '+leaders.topUser.id)} (${leaders.topUser.count})` : '—');
-      const fmtMedia=(row)=> row ? `${row.media_key} (${row.count})` : '—';
-      byId('statMostViews', fmtMedia(leaders.mostViews));
-      byId('statMostLikes', fmtMedia(leaders.mostLikes));
-      byId('statMostSaves', fmtMedia(leaders.mostSaves));
-      byId('statMostDownloads', fmtMedia(leaders.mostDownloads));
-  }catch(e){ console.error('Dashboard stats failed', e); }
+  const js = await res.json();
+  const totals = js.totals||{}; const leaders = js.leaders||{}; const metrics = js.metrics||{};
+
+  // Totals
+      setTileNumber('statUsers', totals.users);
+      setTileNumber('statGenerated', totals.generated);
+      setTileNumber('statViewed', totals.viewed);
+      setTileNumber('statDownloads', totals.downloads);
+
+      // Top user: show big number + name
+      if(leaders.topUser){
+        setTileNumber('tileTopUserNumber', leaders.topUser.count);
+        setTileText('tileTopUserSub', leaders.topUser.name || ('User '+leaders.topUser.id));
+      } else {
+        setTileNumber('tileTopUserNumber', '—');
+        setTileText('tileTopUserSub', 'No data');
+      }
+
+      // Media leader tiles with image + number
+      setMediaTile('MostViews', leaders.mostViews);
+      setMediaTile('MostLikes', leaders.mostLikes);
+      setMediaTile('MostSaves', leaders.mostSaves);
+      setMediaTile('MostDownloads', leaders.mostDownloads);
+      // Generation time metrics
+      setMs('avgGenTime', metrics.avgGenMs);
+      if(metrics.minGen){
+        const row = { media_key: metrics.minGen.media_key, count: metrics.minGen.elapsed_ms };
+        const img = document.getElementById('imgFastest'); if(img){ img.src = toThumbUrl(row.media_key, 480); img.alt=row.media_key; }
+        const tTitle = document.getElementById('titleFastest'); if(tTitle){ tTitle.textContent = row.media_key; }
+        setMs('numFastest', row.count);
+      } else {
+        setMs('numFastest', null);
+      }
+      if(metrics.maxGen){
+        const row = { media_key: metrics.maxGen.media_key, count: metrics.maxGen.elapsed_ms };
+        const img = document.getElementById('imgSlowest'); if(img){ img.src = toThumbUrl(row.media_key, 480); img.alt=row.media_key; }
+        const tTitle = document.getElementById('titleSlowest'); if(tTitle){ tTitle.textContent = row.media_key; }
+        setMs('numSlowest', row.count);
+      } else {
+        setMs('numSlowest', null);
+      }
+      // Conversion rates
+      const conv = metrics.conversion||{};
+      setRate('rateLike', conv.likeRate);
+      setRate('rateSave', conv.saveRate);
+      setRate('rateDownload', conv.downloadRate);
+    }
+
+    function scheduleAutoRefresh(){
+      const cb = document.getElementById('dashAutoRefresh');
+      let timer;
+      const tick = async ()=>{
+        try { await loadStats(); } catch(e){ console.error('Dashboard stats failed', e); }
+        if (cb?.checked) timer = setTimeout(tick, 10000);
+      };
+      cb?.addEventListener('change', ()=>{
+        if (!cb.checked && timer) { clearTimeout(timer); timer = undefined; }
+        if (cb.checked && !timer) { tick(); }
+      });
+      // initial
+      tick();
+    }
+
+    // Wire filter & period
+    document.getElementById('dashFilter')?.addEventListener('input', ()=>{ loadStats().catch(e=>console.error(e)); });
+    document.getElementById('dashPeriod')?.addEventListener('change', ()=>{ loadStats().catch(e=>console.error(e)); });
+    scheduleAutoRefresh();
   })();
 </script>

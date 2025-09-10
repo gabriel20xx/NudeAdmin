@@ -143,34 +143,214 @@ app.get('/dashboard', (req, res) => { res.render('dashboard', { title: 'Dashboar
 // Stats API for dashboard
 app.get('/api/admin/stats', requireAuth, requireAdmin, async (req,res)=>{
   try{
-    // Totals
-    const [{ rows: u }] = await Promise.all([
-      query('SELECT COUNT(1) AS c FROM users')
+    const { period = '7d', filter = '' } = req.query || {};
+    const driver = getDriver();
+    const getDateCond = (col) => {
+      if (String(period) === 'all') return { sql: '', params: [] };
+      if (driver === 'pg') {
+        const days = String(period) === '30d' ? 30 : 7;
+        return { sql: ` AND ${col} >= NOW() - INTERVAL '${days} days'`, params: [] };
+      }
+      // sqlite
+      const days = String(period) === '30d' ? 30 : 7;
+      return { sql: ` AND ${col} >= datetime('now', '-${days} days')`, params: [] };
+    };
+    const normFilter = String(filter || '').trim();
+    const hasFilter = normFilter.length > 0;
+    const likeValPg = `%${normFilter}%`;
+    const likeValSqlite = `%${normFilter.toLowerCase()}%`;
+    const likeExpr = (col) => driver === 'pg' ? `${col} ILIKE $X` : `LOWER(${col}) LIKE ?`;
+
+    // Totals: users
+    {
+      let sql = 'SELECT COUNT(1) AS c FROM users WHERE 1=1';
+      const params = [];
+      const dt = getDateCond('created_at');
+      sql += dt.sql;
+      if (hasFilter) {
+        if (driver === 'pg') {
+          sql += ` AND (email ILIKE $1 OR username ILIKE $2)`;
+          params.push(likeValPg, likeValPg);
+        } else {
+          sql += ` AND (LOWER(email) LIKE ? OR LOWER(username) LIKE ?)`;
+          params.push(likeValSqlite, likeValSqlite);
+        }
+      }
+      var { rows: u } = await query(sql, params);
+    }
+
+    // Totals: media generated
+    {
+      let sql = 'SELECT COUNT(1) AS c FROM media m LEFT JOIN users u ON u.id = m.user_id WHERE 1=1';
+      const params = [];
+      const dt = getDateCond('m.created_at');
+      sql += dt.sql;
+      if (hasFilter) {
+        if (driver === 'pg') {
+          sql += ` AND (m.media_key ILIKE $1 OR u.email ILIKE $2 OR u.username ILIKE $3)`;
+          params.push(likeValPg, likeValPg, likeValPg);
+        } else {
+          sql += ` AND (LOWER(m.media_key) LIKE ? OR LOWER(u.email) LIKE ? OR LOWER(u.username) LIKE ?)`;
+          params.push(likeValSqlite, likeValSqlite, likeValSqlite);
+        }
+      }
+      var { rows: m } = await query(sql, params);
+    }
+
+    // Totals: views
+    {
+      let sql = 'SELECT COUNT(1) AS c FROM media_views t LEFT JOIN users u ON u.id = t.user_id WHERE 1=1';
+      const params = [];
+      const dt = getDateCond('t.created_at');
+      sql += dt.sql;
+      if (hasFilter) {
+        if (driver === 'pg') {
+          sql += ` AND (t.media_key ILIKE $1 OR u.email ILIKE $2 OR u.username ILIKE $3)`;
+          params.push(likeValPg, likeValPg, likeValPg);
+        } else {
+          sql += ` AND (LOWER(t.media_key) LIKE ? OR LOWER(u.email) LIKE ? OR LOWER(u.username) LIKE ?)`;
+          params.push(likeValSqlite, likeValSqlite, likeValSqlite);
+        }
+      }
+      var { rows: v } = await query(sql, params);
+    }
+
+    // Totals: downloads
+    {
+      let sql = 'SELECT COUNT(1) AS c FROM media_downloads t LEFT JOIN users u ON u.id = t.user_id WHERE 1=1';
+      const params = [];
+      const dt = getDateCond('t.created_at');
+      sql += dt.sql;
+      if (hasFilter) {
+        if (driver === 'pg') {
+          sql += ` AND (t.media_key ILIKE $1 OR u.email ILIKE $2 OR u.username ILIKE $3)`;
+          params.push(likeValPg, likeValPg, likeValPg);
+        } else {
+          sql += ` AND (LOWER(t.media_key) LIKE ? OR LOWER(u.email) LIKE ? OR LOWER(u.username) LIKE ?)`;
+          params.push(likeValSqlite, likeValSqlite, likeValSqlite);
+        }
+      }
+      var { rows: d } = await query(sql, params);
+    }
+
+    // Leader: top user by generations
+    let topUserRows;
+    {
+      let sql = `SELECT u.id, COALESCE(u.username, u.email) AS name, COUNT(m.id) AS count
+                 FROM media m LEFT JOIN users u ON u.id = m.user_id
+                 WHERE 1=1`;
+      const params = [];
+      const dt = getDateCond('m.created_at');
+      sql += dt.sql;
+      if (hasFilter) {
+        if (driver === 'pg') {
+          sql += ` AND (m.media_key ILIKE $1 OR u.email ILIKE $2 OR u.username ILIKE $3)`;
+          params.push(likeValPg, likeValPg, likeValPg);
+        } else {
+          sql += ` AND (LOWER(m.media_key) LIKE ? OR LOWER(u.email) LIKE ? OR LOWER(u.username) LIKE ?)`;
+          params.push(likeValSqlite, likeValSqlite, likeValSqlite);
+        }
+      }
+      sql += ' GROUP BY u.id, name ORDER BY count DESC LIMIT 1';
+      const { rows } = await query(sql, params);
+      topUserRows = rows;
+    }
+
+    async function mediaLeader(tableName){
+      let sql = `SELECT t.media_key, COUNT(1) AS count
+                 FROM ${tableName} t LEFT JOIN users u ON u.id = t.user_id
+                 WHERE 1=1`;
+      const params = [];
+      const dt = getDateCond('t.created_at');
+      sql += dt.sql;
+      if (hasFilter) {
+        if (driver === 'pg') {
+          sql += ` AND (t.media_key ILIKE $1 OR u.email ILIKE $2 OR u.username ILIKE $3)`;
+          params.push(likeValPg, likeValPg, likeValPg);
+        } else {
+          sql += ` AND (LOWER(t.media_key) LIKE ? OR LOWER(u.email) LIKE ? OR LOWER(u.username) LIKE ?)`;
+          params.push(likeValSqlite, likeValSqlite, likeValSqlite);
+        }
+      }
+      sql += ' GROUP BY t.media_key ORDER BY count DESC LIMIT 1';
+      const { rows } = await query(sql, params);
+      return rows?.[0] || null;
+    }
+
+    const [mostViews, mostLikes, mostSaves, mostDownloads] = await Promise.all([
+      mediaLeader('media_views'), mediaLeader('media_likes'), mediaLeader('media_saves'), mediaLeader('media_downloads')
     ]);
-    const { rows: m } = await query('SELECT COUNT(1) AS c FROM media');
-    const { rows: v } = await query('SELECT COUNT(1) AS c FROM media_views');
-    const { rows: d } = await query('SELECT COUNT(1) AS c FROM media_downloads');
-    // User with most generations
-    const { rows: topUser } = await query(`
-      SELECT u.id, COALESCE(u.username, u.email) AS name, COUNT(m.id) AS count
-      FROM media m LEFT JOIN users u ON u.id = m.user_id
-      GROUP BY u.id, name
-      ORDER BY count DESC
-      LIMIT 1
-    `);
-    // Media leaders
-    const { rows: mostViews } = await query(`
-      SELECT media_key, COUNT(1) AS count FROM media_views GROUP BY media_key ORDER BY count DESC LIMIT 1
-    `);
-    const { rows: mostLikes } = await query(`
-      SELECT media_key, COUNT(1) AS count FROM media_likes GROUP BY media_key ORDER BY count DESC LIMIT 1
-    `);
-    const { rows: mostSaves } = await query(`
-      SELECT media_key, COUNT(1) AS count FROM media_saves GROUP BY media_key ORDER BY count DESC LIMIT 1
-    `);
-    const { rows: mostDownloads } = await query(`
-      SELECT media_key, COUNT(1) AS count FROM media_downloads GROUP BY media_key ORDER BY count DESC LIMIT 1
-    `);
+
+    // Generation time metrics (avg, min, max with media preview)
+    let avgGenMs = null, minGen = null, maxGen = null;
+    {
+      // average
+      let sql = 'SELECT AVG(elapsed_ms) AS avg_ms FROM media_metrics WHERE 1=1';
+      const params = [];
+      const dt = getDateCond('created_at');
+      sql += dt.sql;
+      if (hasFilter) {
+        if (driver === 'pg') {
+          sql += ' AND media_key ILIKE $1'; params.push(likeValPg);
+        } else { sql += ' AND LOWER(media_key) LIKE ?'; params.push(likeValSqlite); }
+      }
+      const { rows } = await query(sql, params);
+      avgGenMs = rows?.[0]?.avg_ms != null ? Math.round(Number(rows[0].avg_ms)) : null;
+    }
+    // min
+    {
+      let sql = 'SELECT media_key, elapsed_ms FROM media_metrics WHERE 1=1';
+      const params = [];
+      const dt = getDateCond('created_at');
+      sql += dt.sql;
+      if (hasFilter) {
+        if (driver === 'pg') { sql += ' AND media_key ILIKE $1'; params.push(likeValPg); }
+        else { sql += ' AND LOWER(media_key) LIKE ?'; params.push(likeValSqlite); }
+      }
+      sql += ' ORDER BY elapsed_ms ASC LIMIT 1';
+      const { rows } = await query(sql, params);
+      minGen = rows?.[0] || null;
+    }
+    // max
+    {
+      let sql = 'SELECT media_key, elapsed_ms FROM media_metrics WHERE 1=1';
+      const params = [];
+      const dt = getDateCond('created_at');
+      sql += dt.sql;
+      if (hasFilter) {
+        if (driver === 'pg') { sql += ' AND media_key ILIKE $1'; params.push(likeValPg); }
+        else { sql += ' AND LOWER(media_key) LIKE ?'; params.push(likeValSqlite); }
+      }
+      sql += ' ORDER BY elapsed_ms DESC LIMIT 1';
+      const { rows } = await query(sql, params);
+      maxGen = rows?.[0] || null;
+    }
+
+    // Conversion rates (likes/views, saves/views, downloads/views)
+    let conv = { likeRate: null, saveRate: null, downloadRate: null };
+    {
+      // counts in window
+      async function countOf(table){
+        let sql = `SELECT COUNT(1) AS c FROM ${table} WHERE 1=1`;
+        const params = [];
+        const dt = getDateCond('created_at');
+        sql += dt.sql;
+        if (hasFilter) {
+          if (driver === 'pg') { sql += ' AND media_key ILIKE $1'; params.push(likeValPg); }
+          else { sql += ' AND LOWER(media_key) LIKE ?'; params.push(likeValSqlite); }
+        }
+        const { rows } = await query(sql, params);
+        return Number(rows?.[0]?.c || 0);
+      }
+      const [vc, lc, sc, dc] = await Promise.all([
+        countOf('media_views'), countOf('media_likes'), countOf('media_saves'), countOf('media_downloads')
+      ]);
+      const safeDiv = (a,b)=> b>0? (a/b) : null;
+      conv.likeRate = safeDiv(lc, vc);
+      conv.saveRate = safeDiv(sc, vc);
+      conv.downloadRate = safeDiv(dc, vc);
+    }
+
     res.json({
       success:true,
       totals: {
@@ -180,11 +360,17 @@ app.get('/api/admin/stats', requireAuth, requireAdmin, async (req,res)=>{
         downloads: Number(d?.[0]?.c||0)
       },
       leaders: {
-        topUser: topUser?.[0] || null,
-        mostViews: mostViews?.[0] || null,
-        mostLikes: mostLikes?.[0] || null,
-        mostSaves: mostSaves?.[0] || null,
-        mostDownloads: mostDownloads?.[0] || null
+        topUser: topUserRows?.[0] || null,
+        mostViews,
+        mostLikes,
+        mostSaves,
+        mostDownloads
+      },
+      metrics: {
+        avgGenMs,
+        minGen,
+        maxGen,
+        conversion: conv
       }
     });
   }catch(e){ Logger.error('ADMIN_STATS', e); res.status(500).json({ success:false, error:'Failed to load stats' }); }
