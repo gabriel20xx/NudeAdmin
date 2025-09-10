@@ -19,6 +19,7 @@ import { buildAdminUsersRouter } from '../../NudeShared/server/api/adminUsersRou
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PROJECT_ROOT = path.resolve(__dirname, '..');
+const WORKSPACE_ROOT = path.resolve(PROJECT_ROOT, '..');
 
 dotenv.config({ path: path.join(PROJECT_ROOT, '.env') });
 
@@ -72,6 +73,34 @@ app.use('/shared', express.static(sharedDir));
 
 // Unified theme mount
 mountTheme(app, { projectDir: path.join(__dirname), sharedDir, logger: console });
+
+// Expose generated media output directory and a lightweight thumbnail passthrough for Admin previews
+const OUTPUT_DIR = process.env.OUTPUT_DIR
+  ? path.resolve(process.env.OUTPUT_DIR)
+  : path.resolve(WORKSPACE_ROOT, 'output');
+
+// Serve original generated files
+app.use('/output', express.static(OUTPUT_DIR));
+
+// Simple thumbnail handler: safely resolve file inside OUTPUT_DIR and return it.
+// Note: For performance/resizing, NudeForge implements cached JPEG thumbs; here we provide a safe passthrough so Admin can preview.
+app.get('/thumbs/output/:rest(*)', async (req, res) => {
+  try {
+    const rest = String(req.params.rest || '');
+    // Normalize and prevent directory traversal
+    const normalized = path.normalize(rest).replace(/^\.+[\\\/]?/, '').replace(/^[\\\/]+/, '');
+    const abs = path.join(OUTPUT_DIR, normalized);
+    const rel = path.relative(OUTPUT_DIR, abs);
+    if (rel.startsWith('..') || path.isAbsolute(rel)) return res.status(400).send('Invalid path');
+    if (!fs.existsSync(abs)) return res.status(404).send('Not found');
+    // Basic cache control; we return the original file (no resize) to ensure previews work
+    res.set('Cache-Control', 'public, max-age=86400');
+    return res.sendFile(abs);
+  } catch (e) {
+    console.error('[ADMIN_THUMBS]', e);
+    return res.status(404).send('Thumbnail not available');
+  }
+});
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
