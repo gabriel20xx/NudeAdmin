@@ -27,7 +27,10 @@
           </div>
           <div class="auth-field">
             <label for="loginPassword">Password</label>
-            <input id="loginPassword" type="password" class="auth-input" placeholder="••••••••" autocomplete="current-password">
+            <div class="auth-input-wrap">
+              <input id="loginPassword" type="password" class="auth-input" placeholder="••••••••" autocomplete="current-password">
+              <button type="button" class="pw-toggle" aria-label="Show password" data-target="loginPassword" title="Show/Hide password"><i class="fa fa-eye"></i></button>
+            </div>
           </div>
           <div class="auth-actions">
             <button type="button" class="btn-success-solid auth-submit" data-mode="login">Log in</button>
@@ -46,11 +49,17 @@
             <label for="signupPassword">Password
               <span aria-label="Password strength tips" title="Fair: 10+ characters, mix upper/lowercase, a number and a symbol. Strong: 14+ with variety." style="margin-left:.35rem; cursor:help; font-size:.85em; color:var(--color-text-dim);">ⓘ</span>
             </label>
-            <input id="signupPassword" type="password" class="auth-input" placeholder="Create password (min 6)" autocomplete="new-password">
+            <div class="auth-input-wrap">
+              <input id="signupPassword" type="password" class="auth-input" placeholder="Create password (min 6)" autocomplete="new-password">
+              <button type="button" class="pw-toggle" aria-label="Show password" data-target="signupPassword" title="Show/Hide password"><i class="fa fa-eye"></i></button>
+            </div>
           </div>
             <div class="auth-field">
               <label for="signupConfirm">Repeat password</label>
-              <input id="signupConfirm" type="password" class="auth-input" placeholder="Repeat password" autocomplete="new-password">
+              <div class="auth-input-wrap">
+                <input id="signupConfirm" type="password" class="auth-input" placeholder="Repeat password" autocomplete="new-password">
+                <button type="button" class="pw-toggle" aria-label="Show password" data-target="signupConfirm" title="Show/Hide password"><i class="fa fa-eye"></i></button>
+              </div>
               <small id="signupConfirmError" style="color:#e53935; display:none;">Passwords do not match</small>
             </div>
           <div class="auth-field password-strength" aria-live="polite">
