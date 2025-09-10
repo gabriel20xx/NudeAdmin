@@ -105,6 +105,55 @@ app.use(authGate);
 // Routes (protected by authGate)
 app.get('/', (req, res) => res.redirect('/dashboard'));
 app.get('/dashboard', (req, res) => { res.render('dashboard', { title: 'Dashboard' }); });
+// Stats API for dashboard
+app.get('/api/admin/stats', requireAuth, requireAdmin, async (req,res)=>{
+  try{
+    // Totals
+    const [{ rows: u }] = await Promise.all([
+      query('SELECT COUNT(1) AS c FROM users')
+    ]);
+    const { rows: m } = await query('SELECT COUNT(1) AS c FROM media');
+    const { rows: v } = await query('SELECT COUNT(1) AS c FROM media_views');
+    const { rows: d } = await query('SELECT COUNT(1) AS c FROM media_downloads');
+    // User with most generations
+    const { rows: topUser } = await query(`
+      SELECT u.id, COALESCE(u.username, u.email) AS name, COUNT(m.id) AS count
+      FROM media m LEFT JOIN users u ON u.id = m.user_id
+      GROUP BY u.id, name
+      ORDER BY count DESC
+      LIMIT 1
+    `);
+    // Media leaders
+    const { rows: mostViews } = await query(`
+      SELECT media_key, COUNT(1) AS count FROM media_views GROUP BY media_key ORDER BY count DESC LIMIT 1
+    `);
+    const { rows: mostLikes } = await query(`
+      SELECT media_key, COUNT(1) AS count FROM media_likes GROUP BY media_key ORDER BY count DESC LIMIT 1
+    `);
+    const { rows: mostSaves } = await query(`
+      SELECT media_key, COUNT(1) AS count FROM media_saves GROUP BY media_key ORDER BY count DESC LIMIT 1
+    `);
+    const { rows: mostDownloads } = await query(`
+      SELECT media_key, COUNT(1) AS count FROM media_downloads GROUP BY media_key ORDER BY count DESC LIMIT 1
+    `);
+    res.json({
+      success:true,
+      totals: {
+        users: Number(u?.[0]?.c||0),
+        generated: Number(m?.[0]?.c||0),
+        viewed: Number(v?.[0]?.c||0),
+        downloads: Number(d?.[0]?.c||0)
+      },
+      leaders: {
+        topUser: topUser?.[0] || null,
+        mostViews: mostViews?.[0] || null,
+        mostLikes: mostLikes?.[0] || null,
+        mostSaves: mostSaves?.[0] || null,
+        mostDownloads: mostDownloads?.[0] || null
+      }
+    });
+  }catch(e){ Logger.error('ADMIN_STATS', e); res.status(500).json({ success:false, error:'Failed to load stats' }); }
+});
 app.get('/users', (req, res) => { res.render('users', { title: 'Users' }); });
 app.get('/media', (req, res) => { res.render('media', { title: 'Media' }); });
 app.get('/settings', (req, res) => { res.render('settings', { title: 'Settings' }); });

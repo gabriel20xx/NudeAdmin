@@ -1,8 +1,40 @@
 <% layout('partials/layout') %>
 <section class="panel">
   <h1 class="panel-title">Dashboard</h1>
-  <p class="text-dim">Quick overview of platform status will appear here.</p>
   <div class="panel-body">
-    <div class="placeholder">(Coming soon: user counts, media stats, recent activity)</div>
+    <div class="stats-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
+      <div class="card"><div class="card-body"><div class="stat-label">Total registered users</div><div class="stat-value" id="statUsers">—</div></div></div>
+      <div class="card"><div class="card-body"><div class="stat-label">Total generated media</div><div class="stat-value" id="statGenerated">—</div></div></div>
+      <div class="card"><div class="card-body"><div class="stat-label">Total viewed media (NudeFlow)</div><div class="stat-value" id="statViewed">—</div></div></div>
+      <div class="card"><div class="card-body"><div class="stat-label">Total downloads</div><div class="stat-value" id="statDownloads">—</div></div></div>
+    </div>
+    <div style="margin-top:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;">
+      <div class="card"><div class="card-body"><div class="stat-label">User with most generations</div><div class="stat-value" id="statTopUser">—</div></div></div>
+      <div class="card"><div class="card-body"><div class="stat-label">Media with most views</div><div class="stat-value" id="statMostViews">—</div></div></div>
+      <div class="card"><div class="card-body"><div class="stat-label">Media with most likes</div><div class="stat-value" id="statMostLikes">—</div></div></div>
+      <div class="card"><div class="card-body"><div class="stat-label">Media with most saves</div><div class="stat-value" id="statMostSaves">—</div></div></div>
+      <div class="card"><div class="card-body"><div class="stat-label">Media with most downloads</div><div class="stat-value" id="statMostDownloads">—</div></div></div>
+    </div>
   </div>
 </section>
+<script>
+  (async function(){
+    try{
+      const res = await fetch('/api/admin/stats');
+      if(!res.ok) throw new Error('Failed to load stats');
+      const js = await res.json();
+      const totals = js.totals||{}; const leaders = js.leaders||{};
+      const byId=(id,v)=>{ const el=document.getElementById(id); if(el) el.textContent = (v ?? '—'); };
+      byId('statUsers', totals.users);
+      byId('statGenerated', totals.generated);
+      byId('statViewed', totals.viewed);
+      byId('statDownloads', totals.downloads);
+      byId('statTopUser', leaders.topUser ? `${leaders.topUser.name||('User '+leaders.topUser.id)} (${leaders.topUser.count})` : '—');
+      const fmtMedia=(row)=> row ? `${row.media_key} (${row.count})` : '—';
+      byId('statMostViews', fmtMedia(leaders.mostViews));
+      byId('statMostLikes', fmtMedia(leaders.mostLikes));
+      byId('statMostSaves', fmtMedia(leaders.mostSaves));
+      byId('statMostDownloads', fmtMedia(leaders.mostDownloads));
+    }catch(e){ console.error('Dashboard stats failed', e); }
+  })();
+</script>
