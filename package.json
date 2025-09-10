@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "node --watch src/app.js",
-  "test": "powershell -Command \"$env:NODE_ENV='test'; node --experimental-vm-modules test/adminRoutes.test.mjs; node --experimental-vm-modules test/authAdminFlow.test.mjs; node --experimental-vm-modules test/adminUsersMedia.test.mjs; node --experimental-vm-modules test/adminMediaActions.test.mjs\""
+  "test": "powershell -Command \"$env:NODE_ENV='test'; node --experimental-vm-modules test/adminRoutes.test.mjs; node --experimental-vm-modules test/authAdminFlow.test.mjs; node --experimental-vm-modules test/adminUsersMedia.test.mjs; node --experimental-vm-modules test/adminMediaActions.test.mjs; node --experimental-vm-modules test/adminThumbs.test.mjs\""
   },
   "dependencies": {
     "dotenv": "^16.4.5",
