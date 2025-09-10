@@ -7,11 +7,11 @@
       <div class="card-body" style="display:grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap:.5rem; align-items:end;">
         <div>
           <div><small class="text-dim">Email</small></div>
-          <input type="email" id="newUserEmail" placeholder="user@example.com" />
+          <input type="email" id="newUserEmail" class="auth-input" placeholder="user@example.com" />
         </div>
         <div>
           <div><small class="text-dim">Username (optional)</small></div>
-          <input type="text" id="newUserUsername" placeholder="username" />
+          <input type="text" id="newUserUsername" class="auth-input" placeholder="username" />
         </div>
         <div>
           <div><small class="text-dim">Password</small></div>
@@ -22,7 +22,7 @@
         </div>
         <div>
           <div><small class="text-dim">Role</small></div>
-          <select id="newUserRole">
+          <select id="newUserRole" class="ui-select">
             <option value="user">user</option>
             <option value="moderator">moderator</option>
             <option value="admin">admin</option>
@@ -34,9 +34,9 @@
       </div>
     </div>
     <div class="toolbar" style="display:flex; gap:.5rem; justify-content:center; align-items:center; flex-wrap:wrap;">
-      <input type="text" id="userSearch" placeholder="Search by email or username..." style="min-width:260px;" />
+  <input type="text" id="userSearch" class="auth-input" placeholder="Search by email or username..." style="min-width:260px;" />
       <div class="actions" style="display:flex; gap:.35rem; align-items:center;">
-        <select id="userBulkAction">
+  <select id="userBulkAction" class="ui-select">
           <option value="">Bulk Action</option>
           <option value="disable">Disable</option>
           <option value="enable">Enable</option>
@@ -45,7 +45,7 @@
           <option value="reset_password">Reset Password</option>
           <option value="change_role">Change Role</option>
         </select>
-        <select id="userRoleInput" style="display:none;">
+  <select id="userRoleInput" class="ui-select" style="display:none;">
           <option value="user">user</option>
           <option value="moderator">moderator</option>
           <option value="admin">admin</option>
@@ -140,19 +140,19 @@
     const roleOpts = ['user','moderator','admin'].map(r=>`<option value="${r}" ${u.role===r?'selected':''}>${r}</option>`).join('');
     return `
   <div class="user-item" data-id="${u.id}" style="display:grid; grid-template-columns: 28px 1fr auto; gap:.65rem; align-items:center; border:1px solid var(--color-border); border-radius:var(--radius-md); padding:.6rem .7rem; background:var(--color-surface);">
-        <div><input type="checkbox" class="userRowChk" /></div>
+  <div><input type="checkbox" class="userRowChk ui-checkbox" /></div>
         <div class="user-main" style="display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:.5rem; text-align:left;">
           <div>
             <div><small class="text-dim">Username</small></div>
-            <div><input class="u-username" type="text" value="${escapeHtml(u.username||'')}" style="width:100%;" /></div>
+            <div><input class="u-username auth-input" type="text" value="${escapeHtml(u.username||'')}" style="width:100%;" /></div>
           </div>
           <div>
             <div><small class="text-dim">Email</small></div>
-            <div><input class="u-email" type="email" value="${escapeHtml(u.email||'')}" style="width:100%;" /></div>
+            <div><input class="u-email auth-input" type="email" value="${escapeHtml(u.email||'')}" style="width:100%;" /></div>
           </div>
           <div>
             <div><small class="text-dim">Role</small></div>
-            <div><select class="u-role">${roleOpts}</select></div>
+            <div><select class="u-role ui-select">${roleOpts}</select></div>
           </div>
           <div>
             <div><small class="text-dim">Status</small></div>

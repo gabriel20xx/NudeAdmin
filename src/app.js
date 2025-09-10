@@ -112,6 +112,9 @@ app.use((req, res, next) => {
   res.locals.currentPath = req.path;
   // Disable signup in shared header for admin panel
   res.locals.disableSignup = true;
+  // Avoid shared header trying to load app-level CSS or socket.io in Admin
+  res.locals.appCssHref = '';
+  res.locals.enableSocketIO = false;
   // Lock auth overlay close on backdrop for admin (modal remains open on outside click)
   res.locals.lockAuthClose = true;
   // Auth state for shared views (e.g., profile.ejs expects isAuthenticated)
