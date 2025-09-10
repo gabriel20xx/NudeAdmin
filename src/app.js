@@ -14,6 +14,7 @@ import { buildUsersAdminRouter } from '../../NudeShared/server/api/usersRoutes.j
 import { buildAdminMediaRouter } from '../../NudeShared/server/api/adminMediaRoutes.js';
 import { buildAdminSettingsRouter } from '../../NudeShared/server/api/adminSettingsRoutes.js';
 import { buildAdminUsersRouter } from '../../NudeShared/server/api/adminUsersRoutes.js';
+import { getOrCreateOutputThumbnail } from './services/thumbnails.js';
 
 // Shared integration: expect NudeShared cloned sibling or via env NUDESHARED_DIR
 const __filename = fileURLToPath(import.meta.url);
@@ -82,22 +83,22 @@ const OUTPUT_DIR = process.env.OUTPUT_DIR
 // Serve original generated files
 app.use('/output', express.static(OUTPUT_DIR));
 
-// Simple thumbnail handler: safely resolve file inside OUTPUT_DIR and return it.
-// Note: For performance/resizing, NudeForge implements cached JPEG thumbs; here we provide a safe passthrough so Admin can preview.
+// Resized thumbnail handler with caching under OUTPUT_DIR/.thumbs
 app.get('/thumbs/output/:rest(*)', async (req, res) => {
   try {
     const rest = String(req.params.rest || '');
-    // Normalize and prevent directory traversal
     const normalized = path.normalize(rest).replace(/^\.+[\\\/]?/, '').replace(/^[\\\/]+/, '');
     const abs = path.join(OUTPUT_DIR, normalized);
     const rel = path.relative(OUTPUT_DIR, abs);
     if (rel.startsWith('..') || path.isAbsolute(rel)) return res.status(400).send('Invalid path');
     if (!fs.existsSync(abs)) return res.status(404).send('Not found');
-    // Basic cache control; we return the original file (no resize) to ensure previews work
-    res.set('Cache-Control', 'public, max-age=86400');
-    return res.sendFile(abs);
+    const w = Number(req.query.w) || undefined;
+    const h = Number(req.query.h) || undefined;
+    const filePath = await getOrCreateOutputThumbnail(OUTPUT_DIR, normalized, { w, h });
+    res.set({ 'Cache-Control': 'public, max-age=86400', 'Content-Type': 'image/jpeg' });
+    return res.sendFile(filePath);
   } catch (e) {
-    console.error('[ADMIN_THUMBS]', e);
+    Logger.error('ADMIN_THUMBS', 'Error serving output thumbnail:', e);
     return res.status(404).send('Thumbnail not available');
   }
 });
