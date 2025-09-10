@@ -202,8 +202,9 @@
   }
 
   function selectedIds(){ return Array.from(listRoot.querySelectorAll('.media-item.selected, .mediaRowChk:checked')).map(el=> el.dataset?.id ? Number(el.dataset.id) : Number(el.closest('.media-item').dataset.id)); }
-  function toThumbUrl(key){ const rel = encodeURIComponent(key); return `/thumbs/output/${rel}?w=200`; }
-  function toFullUrl(key){ const rel = encodeURIComponent(key); return `/output/${rel}`; }
+  function encodePathSegments(p){ return String(p||'').split('/').map(encodeURIComponent).join('/'); }
+  function toThumbUrl(key){ const rel = encodePathSegments(key); return `/thumbs/output/${rel}?w=200`; }
+  function toFullUrl(key){ const rel = encodePathSegments(key); return `/output/${rel}`; }
   function isImageKey(key){ const k = String(key||'').toLowerCase(); return ['.png','.jpg','.jpeg','.webp','.gif','.bmp','.svg'].some(ext=> k.endsWith(ext)); }
 
   // Lightbox overlay
