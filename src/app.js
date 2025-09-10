@@ -97,6 +97,8 @@ function authGate(req, res, next){
   if (req.path.startsWith('/auth') || req.path.startsWith('/static') || req.path.startsWith('/shared') || req.path.startsWith('/health') || req.path.startsWith('/socket.io')) {
     return next();
   }
+  // Do not intercept API routes here; let API middlewares return proper JSON 401/403
+  if (req.path.startsWith('/api')) return next();
   // Render login page (minimal layout) – supply flag for header
   return res.status(200).render('login', { title: 'Admin Login', isLoginPage: true });
 }

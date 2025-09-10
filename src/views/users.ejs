@@ -3,6 +3,36 @@
   <h1 class="panel-title">Users</h1>
   <p class="text-dim">Manage platform users, roles, and status.</p>
   <div class="panel-body" id="usersPanel">
+    <div class="card" style="margin-bottom:.75rem;">
+      <div class="card-body" style="display:grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap:.5rem; align-items:end;">
+        <div>
+          <div><small class="text-dim">Email</small></div>
+          <input type="email" id="newUserEmail" placeholder="user@example.com" />
+        </div>
+        <div>
+          <div><small class="text-dim">Username (optional)</small></div>
+          <input type="text" id="newUserUsername" placeholder="username" />
+        </div>
+        <div>
+          <div><small class="text-dim">Password</small></div>
+          <div class="auth-input-wrap">
+            <input type="password" id="newUserPassword" class="auth-input" placeholder="min 6 chars" />
+            <button type="button" class="pw-toggle" aria-label="Show password" data-target="newUserPassword" title="Show/Hide password"><i class="fa fa-eye"></i></button>
+          </div>
+        </div>
+        <div>
+          <div><small class="text-dim">Role</small></div>
+          <select id="newUserRole">
+            <option value="user">user</option>
+            <option value="moderator">moderator</option>
+            <option value="admin">admin</option>
+          </select>
+        </div>
+        <div>
+          <button id="createUserBtn" class="btn-accent">Create User</button>
+        </div>
+      </div>
+    </div>
     <div class="toolbar" style="display:flex; gap:.5rem; justify-content:center; align-items:center; flex-wrap:wrap;">
       <input type="text" id="userSearch" placeholder="Search by email or username..." style="min-width:260px;" />
       <div class="actions" style="display:flex; gap:.35rem; align-items:center;">
@@ -39,6 +69,11 @@
   const bulkSel = document.getElementById('userBulkAction');
   const bulkRole = document.getElementById('userRoleInput');
   const bulkApply = document.getElementById('userApply');
+  const createBtn = document.getElementById('createUserBtn');
+  const inpNewEmail = document.getElementById('newUserEmail');
+  const inpNewUser = document.getElementById('newUserUsername');
+  const inpNewPw = document.getElementById('newUserPassword');
+  const selNewRole = document.getElementById('newUserRole');
   let term = '';
 
   const api = async (path, opts={})=>{
@@ -64,6 +99,41 @@
       listRoot.innerHTML = users.map(u=>renderUserItem(u)).join('');
       wire();
     }catch(e){ listRoot.innerHTML = `<div class="error">${e.message}</div>`; }
+  }
+
+  // Local password visibility toggle for Create User field
+  (function(){
+    const btn = panel.querySelector('.pw-toggle[data-target="newUserPassword"]');
+    if(!btn) return;
+    btn.addEventListener('click', ()=>{
+      const input = inpNewPw;
+      if(!input) return;
+      const isPw = input.getAttribute('type') === 'password';
+      input.setAttribute('type', isPw ? 'text' : 'password');
+      const icon = btn.querySelector('i');
+      if(icon){ icon.classList.toggle('fa-eye'); icon.classList.toggle('fa-eye-slash'); }
+      input.focus();
+    });
+  })();
+
+  // Create user
+  if(createBtn){
+    createBtn.onclick = async ()=>{
+      const email = (inpNewEmail?.value||'').trim();
+      const username = (inpNewUser?.value||'').trim();
+      const password = (inpNewPw?.value||'');
+      const role = (selNewRole?.value||'user');
+      if(!email || !password){ toast.error('Email and password are required'); return; }
+      try{
+        await api('/api/admin/users/create', { method:'POST', body: JSON.stringify({ email, username, password, role }) });
+        toast.success('User created');
+        if(inpNewEmail) inpNewEmail.value='';
+        if(inpNewUser) inpNewUser.value='';
+        if(inpNewPw) inpNewPw.value='';
+        if(selNewRole) selNewRole.value='user';
+        load();
+      }catch(e){ toast.error(e.message); }
+    };
   }
 
   function renderUserItem(u){
