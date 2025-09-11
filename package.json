@@ -7,7 +7,11 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "node --watch src/app.js",
-  "test": "powershell -Command \"$env:NODE_ENV='test'; node --experimental-vm-modules test/adminRoutes.test.mjs; node --experimental-vm-modules test/authAdminFlow.test.mjs; node --experimental-vm-modules test/adminUsersMedia.test.mjs; node --experimental-vm-modules test/adminMediaActions.test.mjs; node --experimental-vm-modules test/adminThumbs.test.mjs\""
+  "test": "vitest run -c ../vitest.config.mjs",
+  "test:watch": "vitest -c ../vitest.config.mjs --watch",
+  "coverage": "vitest run -c ../vitest.config.mjs --coverage",
+  "lint": "eslint .",
+  "lint:fix": "eslint . --fix"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
@@ -15,5 +19,10 @@
   "express": "^4.19.2",
   "express-session": "^1.18.2",
   "sharp": "^0.33.5"
+  },
+  "devDependencies": {
+    "vitest": "^1.6.0",
+    "eslint": "^9.9.0",
+    "eslint-plugin-vitest": "^0.5.4"
   }
 }

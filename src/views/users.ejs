@@ -22,11 +22,11 @@
         </div>
         <div>
           <div><small class="text-dim">Role</small></div>
-          <select id="newUserRole" class="ui-select">
+          <span class="ui-select-wrapper"><select id="newUserRole" class="ui-select">
             <option value="user">user</option>
             <option value="moderator">moderator</option>
             <option value="admin">admin</option>
-          </select>
+          </select></span>
         </div>
         <div>
           <button id="createUserBtn" class="btn-accent">Create User</button>
@@ -36,7 +36,7 @@
     <div class="toolbar" style="display:flex; gap:.5rem; justify-content:center; align-items:center; flex-wrap:wrap;">
   <input type="text" id="userSearch" class="auth-input" placeholder="Search by email or username..." style="min-width:260px;" />
       <div class="actions" style="display:flex; gap:.35rem; align-items:center;">
-  <select id="userBulkAction" class="ui-select">
+  <span class="ui-select-wrapper"><select id="userBulkAction" class="ui-select">
           <option value="">Bulk Action</option>
           <option value="disable">Disable</option>
           <option value="enable">Enable</option>
@@ -44,12 +44,12 @@
           <option value="reset_mfa">Reset TOTP</option>
           <option value="reset_password">Reset Password</option>
           <option value="change_role">Change Role</option>
-        </select>
-  <select id="userRoleInput" class="ui-select" style="display:none;">
+        </select></span>
+  <span class="ui-select-wrapper"><select id="userRoleInput" class="ui-select" style="display:none;">
           <option value="user">user</option>
           <option value="moderator">moderator</option>
           <option value="admin">admin</option>
-        </select>
+        </select></span>
         <button id="userApply" class="btn-accent" disabled>Apply</button>
       </div>
     </div>
@@ -152,7 +152,7 @@
           </div>
           <div>
             <div><small class="text-dim">Role</small></div>
-            <div><select class="u-role ui-select">${roleOpts}</select></div>
+            <div><span class="ui-select-wrapper"><select class="u-role ui-select">${roleOpts}</select></span></div>
           </div>
           <div>
             <div><small class="text-dim">Status</small></div>

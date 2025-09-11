@@ -76,9 +76,14 @@ app.use('/shared', express.static(sharedDir));
 mountTheme(app, { projectDir: path.join(__dirname), sharedDir, logger: console });
 
 // Expose generated media output directory and a lightweight thumbnail passthrough for Admin previews
-const OUTPUT_DIR = process.env.OUTPUT_DIR
-  ? path.resolve(process.env.OUTPUT_DIR)
-  : path.resolve(WORKSPACE_ROOT, 'output');
+// NOTE: We intentionally resolve OUTPUT_DIR lazily for routes to allow tests to override
+// process.env.OUTPUT_DIR after the module is first imported.
+function resolveOutputDir(){
+  const envDir = process.env.OUTPUT_DIR;
+  if (envDir) return path.resolve(envDir);
+  return path.resolve(WORKSPACE_ROOT, 'output');
+}
+const OUTPUT_DIR = resolveOutputDir(); // still used for static mount (non-dynamic)
 
 // Serve original generated files
 app.use('/output', express.static(OUTPUT_DIR));
@@ -86,15 +91,19 @@ app.use('/output', express.static(OUTPUT_DIR));
 // Resized thumbnail handler with caching under OUTPUT_DIR/.thumbs
 app.get('/thumbs/output/:rest(*)', async (req, res) => {
   try {
+    const currentOutputDir = resolveOutputDir();
     const rest = String(req.params.rest || '');
     const normalized = path.normalize(rest).replace(/^\.+[\\\/]?/, '').replace(/^[\\\/]+/, '');
-    const abs = path.join(OUTPUT_DIR, normalized);
-    const rel = path.relative(OUTPUT_DIR, abs);
+    const abs = path.join(currentOutputDir, normalized);
+    const rel = path.relative(currentOutputDir, abs);
     if (rel.startsWith('..') || path.isAbsolute(rel)) return res.status(400).send('Invalid path');
-    if (!fs.existsSync(abs)) return res.status(404).send('Not found');
+    if (!fs.existsSync(abs)) {
+      Logger.warn('ADMIN_THUMBS', 'Original file missing', { abs, outputDir: currentOutputDir, normalized });
+      return res.status(404).send('Not found');
+    }
     const w = Number(req.query.w) || undefined;
     const h = Number(req.query.h) || undefined;
-    const filePath = await getOrCreateOutputThumbnail(OUTPUT_DIR, normalized, { w, h });
+    const filePath = await getOrCreateOutputThumbnail(currentOutputDir, normalized, { w, h });
     res.set({ 'Cache-Control': 'public, max-age=86400', 'Content-Type': 'image/jpeg' });
     return res.sendFile(filePath);
   } catch (e) {
@@ -106,34 +115,49 @@ app.get('/thumbs/output/:rest(*)', async (req, res) => {
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// Simple locals
-app.use((req, res, next) => {
+// --- Admin bootstrap aware locals (enables signup ONLY when no admin exists) ---
+let adminPresenceCache = { hasAdmin: null, ts: 0 };
+async function ensureAdminPresenceFlag(){
+  const now = Date.now();
+  if (adminPresenceCache.ts && (now - adminPresenceCache.ts) < 5000 && adminPresenceCache.hasAdmin !== null) return adminPresenceCache.hasAdmin;
+  try {
+    const { rows } = await query("SELECT 1 FROM users WHERE role IN ('admin','superadmin') LIMIT 1", []);
+    adminPresenceCache = { hasAdmin: !!(rows && rows.length), ts: Date.now() };
+  } catch { adminPresenceCache = { hasAdmin: true, ts: Date.now() }; }
+  return adminPresenceCache.hasAdmin;
+}
+// Immediate cache invalidation when first admin is created (event emitted in authRoutes.js)
+try {
+  process.on('nudeplatform:first-admin-created', () => {
+    adminPresenceCache = { hasAdmin: true, ts: Date.now() };
+  });
+} catch {}
+app.use(async (req, res, next) => {
+  const hasAdmin = await ensureAdminPresenceFlag();
+  const adminNeeded = !hasAdmin;
   res.locals.siteTitle = 'NudeAdmin';
   res.locals.currentPath = req.path;
-  // Disable signup in shared header for admin panel
-  res.locals.disableSignup = true;
-  // Avoid shared header trying to load app-level CSS or socket.io in Admin
+  // Disable signup AFTER first admin created; enable when bootstrapping first admin
+  res.locals.disableSignup = !adminNeeded ? true : false;
   res.locals.appCssHref = '';
   res.locals.enableSocketIO = false;
-  // Lock auth overlay close on backdrop for admin (modal remains open on outside click)
-  res.locals.lockAuthClose = true;
-  // Auth state for shared views (e.g., profile.ejs expects isAuthenticated)
+  res.locals.lockAuthClose = true; // keep modal from closing on accidental outside click
   res.locals.isAuthenticated = !!(req.session?.user?.id);
   res.locals.user = req.session?.user || null;
+  // Expose bootstrap flag for potential conditional copy (not strictly required for overlay logic)
+  res.locals.adminNeeded = adminNeeded;
   next();
 });
 
 // Auth gate middleware – allow auth endpoints & health without session
 function authGate(req, res, next){
   if (req.session?.user?.id) return next();
-  // Allow login endpoints, static assets, health, and socket.io
-  if (req.path.startsWith('/auth') || req.path.startsWith('/static') || req.path.startsWith('/shared') || req.path.startsWith('/health') || req.path.startsWith('/socket.io')) {
+  // Allow auth endpoints, assets, health, socket.io, and APIs (APIs return JSON errors themselves)
+  if (req.path.startsWith('/auth') || req.path.startsWith('/static') || req.path.startsWith('/shared') || req.path.startsWith('/health') || req.path.startsWith('/socket.io') || req.path.startsWith('/api')) {
     return next();
   }
-  // Do not intercept API routes here; let API middlewares return proper JSON 401/403
-  if (req.path.startsWith('/api')) return next();
-  // Render login page (minimal layout) – supply flag for header
-  return res.status(200).render('login', { title: 'Admin Login', isLoginPage: true });
+  // Render unified shared layout page that auto-opens auth modal
+  return res.status(200).render('auth-required', { title: 'Authenticate' });
 }
 app.use(authGate);
 
@@ -471,3 +495,29 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToP
 }
 
 export { app };
+
+// --- Test Helpers ---
+// Lightweight app exposing only thumbnail route for isolated testing without full admin initialization.
+export function buildThumbnailTestApp(outputDir){
+  const tApp = express();
+  function safeOutputDir(){ return outputDir || resolveOutputDir(); }
+  tApp.get('/thumbs/output/:rest(*)', async (req, res) => {
+    try {
+      const currentOutputDir = safeOutputDir();
+      const rest = String(req.params.rest || '');
+      const normalized = path.normalize(rest).replace(/^\.+[\\\/]?/, '').replace(/^[\\\/]+/, '');
+      const abs = path.join(currentOutputDir, normalized);
+      const rel = path.relative(currentOutputDir, abs);
+      if (rel.startsWith('..') || path.isAbsolute(rel)) return res.status(400).send('Invalid path');
+      if (!fs.existsSync(abs)) return res.status(404).send('Not found');
+      const w = Number(req.query.w) || undefined;
+      const h = Number(req.query.h) || undefined;
+      const filePath = await getOrCreateOutputThumbnail(currentOutputDir, normalized, { w, h });
+      res.set({ 'Cache-Control': 'public, max-age=60', 'Content-Type': 'image/jpeg' });
+      return res.sendFile(filePath);
+    } catch (e) {
+      return res.status(404).send('Thumbnail not available');
+    }
+  });
+  return tApp;
+}

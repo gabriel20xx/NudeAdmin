@@ -1,0 +1,21 @@
+<% layout('partials/layout') %>
+<section class="panel" id="authRequiredPanel">
+  <h1 class="panel-title">Authentication Required</h1>
+  <div class="panel-body">
+    <p>Please authenticate to continue. The sign in dialog should appear automatically. If it did not, click the button below.</p>
+    <button type="button" id="forceAuthOpen" class="btn-accent">Open Sign In</button>
+    <% if (adminNeeded) { %>
+      <p class="text-dim" style="margin-top:1rem;">No admin account exists yet. Create the first admin now. This grants elevated permissions.</p>
+    <% } %>
+  </div>
+</section>
+<script>
+  (function(){
+    function openAuth(){
+      const b=document.getElementById('authOpenBtn'); if(b){ b.click(); }
+    }
+    document.getElementById('forceAuthOpen')?.addEventListener('click', openAuth);
+    // Defer to ensure header script loaded
+    setTimeout(openAuth, 50);
+  })();
+</script>

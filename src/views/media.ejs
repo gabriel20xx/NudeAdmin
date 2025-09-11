@@ -7,14 +7,14 @@
       <input type="text" id="mediaSearch" class="auth-input" placeholder="Search by title or key..." style="min-width:260px;" />
       <input type="text" id="mediaCategory" class="auth-input" placeholder="Category filter" style="min-width:180px;" />
       <div class="actions" style="display:flex; gap:.35rem; align-items:center;">
-        <select id="mediaBulkAction" class="ui-select">
+  <span class="ui-select-wrapper"><select id="mediaBulkAction" class="ui-select">
           <option value="">Bulk Action</option>
           <option value="deactivate">Hide</option>
           <option value="activate">Unhide</option>
           <option value="delete">Delete</option>
           <option value="set_category">Set Category</option>
           <option value="rename">Rename Title</option>
-        </select>
+  </select></span>
         <input type="text" id="mediaCategoryInput" class="auth-input" placeholder="category" style="width:130px;display:none;" />
         <input type="text" id="mediaTitleInput" class="auth-input" placeholder="title" style="width:180px;display:none;" />
         <button id="mediaApply" class="btn-accent" disabled>Apply</button>
