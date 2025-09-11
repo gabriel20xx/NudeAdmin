@@ -22,6 +22,8 @@ Provide privileged (admin-role) tooling to:
 | Settings | Platform configuration (limits, toggles) – wired later to persistent store. |
 | Profile | Admin’s own profile / password / 2FA (future). |
 
+Stats API now also reports `metrics.longestView` (media_key + duration_ms) sourced from `media_view_sessions` recorded via NudeForge / NudeFlow view-session events.
+
 ## Layout & Styling
 The app consumes the shared theme directly by mounting the `NudeShared` directory at `/shared`.
 

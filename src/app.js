@@ -375,6 +375,22 @@ app.get('/api/admin/stats', requireAuth, requireAdmin, async (req,res)=>{
       conv.downloadRate = safeDiv(dc, vc);
     }
 
+    // Longest single view session duration (media_view_sessions)
+    let longestView = null;
+    {
+      let sql = 'SELECT media_key, duration_ms FROM media_view_sessions WHERE 1=1';
+      const params = [];
+      const dt = getDateCond('created_at');
+      sql += dt.sql;
+      if (hasFilter) {
+        if (driver === 'pg') { sql += ' AND media_key ILIKE $1'; params.push(likeValPg); }
+        else { sql += ' AND LOWER(media_key) LIKE ?'; params.push(likeValSqlite); }
+      }
+      sql += ' ORDER BY duration_ms DESC LIMIT 1';
+      const { rows } = await query(sql, params);
+      longestView = rows?.[0] || null;
+    }
+
     res.json({
       success:true,
       totals: {
@@ -394,7 +410,8 @@ app.get('/api/admin/stats', requireAuth, requireAdmin, async (req,res)=>{
         avgGenMs,
         minGen,
         maxGen,
-        conversion: conv
+  conversion: conv,
+  longestView
       }
     });
   }catch(e){ Logger.error('ADMIN_STATS', e); res.status(500).json({ success:false, error:'Failed to load stats' }); }
