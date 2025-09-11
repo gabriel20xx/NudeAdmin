@@ -17,6 +17,17 @@ body { font-family: var(--font-stack); background: var(--color-bg); color: var(-
 .settings-form input:focus { outline:none; box-shadow:var(--shadow-focus-soft); border-color:var(--color-accent-glow); }
 .btn-accent { display:inline-block; padding:.55rem 1rem; border:none; border-radius:var(--radius-sm); cursor:pointer; font-size:.8rem; font-weight:600; letter-spacing:.5px; }
 
+/* Checkbox styling to match theme.css */
+input[type="checkbox"].ui-checkbox { appearance:none; width:16px; height:16px; border:1px solid var(--color-border); border-radius:4px; display:inline-block; position:relative; background:var(--color-input-bg); vertical-align:middle; }
+input[type="checkbox"].ui-checkbox:checked { background:var(--color-accent); border-color:var(--color-accent); }
+input[type="checkbox"].ui-checkbox:checked::after { content:''; position:absolute; left:3px; top:1px; width:8px; height:12px; border: solid white; border-width:0 2px 2px 0; transform: rotate(45deg); }
+input[type="checkbox"].ui-checkbox:focus { outline:none; box-shadow:var(--shadow-focus-soft); }
+
+/* Number input tweak to better align with theme */
+input[type="number"].auth-input { appearance:textfield; -moz-appearance:textfield; }
+input[type="number"].auth-input::-webkit-outer-spin-button,
+input[type="number"].auth-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
 /* Password strength meter */
 .password-strength { margin-top:.25rem; }
 .pw-meter { position:relative; height:6px; background:var(--color-surface-alt); border-radius:4px; overflow:hidden; box-shadow:inset 0 0 0 1px var(--color-border); }

@@ -168,8 +168,11 @@
             <div><button class="linklike u-liked" type="button" title="Show liked">${u.likedCount||0}</button></div>
           </div>
           <div>
-            <div><small class="text-dim">Saved</small></div>
-            <div><button class="linklike u-saved" type="button" title="Show saved">${u.savedCount||0}</button></div>
+            <div><small class="text-dim">Playlists</small></div>
+            <div>
+              <span class="badge">${u.playlistsCount||0}</span>
+              <small class="text-dim"> (${u.playlistImagesCount||0} images)</small>
+            </div>
           </div>
           <div>
             <div><small class="text-dim">Timestamps</small></div>
@@ -217,7 +220,7 @@
       const selRole = row.querySelector('.u-role');
       const btnGen = row.querySelector('.u-gen');
       const btnLiked = row.querySelector('.u-liked');
-      const btnSaved = row.querySelector('.u-saved');
+  // Saved replaced by Playlists summary; no click wiring needed
       saveBtn.onclick = async ()=>{
         try { await api(`/api/admin/users/${id}/update`, { method:'POST', body: JSON.stringify({ username: inpUser.value.trim(), email: inpEmail.value.trim(), role: selRole.value }) }); toast.success('User updated'); }
         catch(e){ toast.error(e.message); }
@@ -255,7 +258,7 @@
       };
       btnGen.onclick = ()=> showMedia('generated');
       btnLiked.onclick = ()=> showMedia('liked');
-      btnSaved.onclick = ()=> showMedia('saved');
+  // no-op: playlists aren't drilled here
     });
     // select all wiring
     const allChk = panel.querySelector('#userSelectAllGlobal');
@@ -267,7 +270,7 @@
   function escapeHtml(s){ return (s||'').replace(/[&<>"]+/g, ch=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[ch])); }
 
   // Add a global select all checkbox to toolbar
-  const selAll = document.createElement('label'); selAll.style.marginLeft='.5rem'; selAll.innerHTML = '<input type="checkbox" id="userSelectAllGlobal" /> Select all';
+  const selAll = document.createElement('label'); selAll.style.marginLeft='.5rem'; selAll.innerHTML = '<input type="checkbox" id="userSelectAllGlobal" class="ui-checkbox" /> Select all';
   panel.querySelector('.toolbar').appendChild(selAll);
   load();
 })();
