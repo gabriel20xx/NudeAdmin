@@ -47,6 +47,14 @@ Optional hardening:
 - Set `REQUIRE_CACHE_POLICY_AUTH=true` to hide the endpoint unless a session user is present (responds 404 otherwise).
 - Automatic rate limit: 60 requests/minute/IP (HTTP 429 when exceeded).
 
+### Shared Helpers Usage
+This service uses shared HTTP helpers from `NudeShared`:
+
+- `mountSharedStatic(app, { candidates })` – mounts `/shared` with tiered caching.
+- `registerCachePolicyEndpoint(app, { service, getPolicies })` – standard `/__cache-policy` endpoint.
+
+If you add new asset categories (e.g., fonts) update the policies in `app.js` and ensure `getPolicies()` reflects them.
+
 ## Layout & Styling
 The app consumes the shared theme directly by mounting the `NudeShared` directory at `/shared`.
 

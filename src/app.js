@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import { mountTheme } from '../../NudeShared/server/theme/mountTheme.js';
+import { mountSharedStatic, defaultSharedCandidates, registerCachePolicyEndpoint } from '../../NudeShared/server/index.js';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import Logger from '../../NudeShared/server/logger/serverLogger.js';
@@ -70,20 +71,9 @@ app.use('/static', express.static(path.join(__dirname, 'public')));
   // Auth routes mounted (signup/login etc.)
   app.use('/auth', buildAuthRouter(express.Router));
 
-// Attempt to mount shared theme & client scripts with tiered caching similar to NudeForge
+// Shared static assets (tiered caching)
 const sharedDir = process.env.NUDESHARED_DIR || path.resolve(PROJECT_ROOT, '..', 'NudeShared');
-const sharedStaticOptions = {
-  etag: true,
-  lastModified: true,
-  setHeaders: (res, filePath) => {
-    if (/\.(css|js)$/i.test(filePath)) {
-      res.setHeader('Cache-Control', 'public, max-age=3600');
-    } else if (/\.(png|jpe?g|gif|webp|svg)$/i.test(filePath)) {
-      res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
-    }
-  }
-};
-app.use('/shared', express.static(sharedDir, sharedStaticOptions));
+mountSharedStatic(app, { candidates: [sharedDir], logger: Logger });
 
 // Unified theme mount
 mountTheme(app, { projectDir: path.join(__dirname), sharedDir, logger: console });
@@ -437,37 +427,19 @@ app.get('/profile', (req, res) => { res.render('profile', { title: 'Profile' });
 // Health
 app.get('/health', (req, res) => res.json({ ok: true, uptime: process.uptime() }));
 
-// Cache policy introspection (parity with NudeForge). Informational only.
-const __adminCacheHits = new Map();
-function cachePolicyRateLimitedAdmin(req){
-  const key = (req.headers['x-forwarded-for'] || req.ip || 'local').toString().split(',')[0].trim();
-  const now = Date.now();
-  const windowMs = 60_000; const max = 60;
-  const arr = __adminCacheHits.get(key) || [];
-  const recent = arr.filter(ts=> now - ts < windowMs);
-  recent.push(now);
-  __adminCacheHits.set(key, recent);
-  return recent.length <= max;
-}
-app.get('/__cache-policy', (req, res) => {
-  if (!cachePolicyRateLimitedAdmin(req)) return res.status(429).json({ error: 'Too many requests' });
-  if (process.env.REQUIRE_CACHE_POLICY_AUTH === 'true' && !req.session?.user?.id) {
-    return res.status(404).json({ error: 'Not found' });
-  }
-  res.json({
-    etag: app.get('etag'),
-    service: 'NudeAdmin',
-    policies: {
-      shared: {
-        cssJs: 'public, max-age=3600',
-        images: 'public, max-age=86400, stale-while-revalidate=604800'
-      },
-      thumbnails: 'public, max-age=86400', // /thumbs/output route
-  output: 'default (express static – adjust if needed)',
-      themeCss: 'public, max-age=3600' // served via mountTheme
+// Cache policy endpoint via shared helper
+registerCachePolicyEndpoint(app, {
+  service: 'NudeAdmin',
+  getPolicies: () => ({
+    shared: {
+      cssJs: 'public, max-age=3600',
+      images: 'public, max-age=86400, stale-while-revalidate=604800'
     },
-    note: 'Adjust caching logic in app.js if changing policies. This endpoint is unauthenticated and for ops/debug.'
-  });
+    thumbnails: 'public, max-age=86400',
+    output: 'default (express static – adjust if needed)',
+    themeCss: 'public, max-age=3600'
+  }),
+  note: 'Adjust caching logic in app.js if changing policies. This endpoint is informational.'
 });
 
 // --- AuthZ helpers ---
