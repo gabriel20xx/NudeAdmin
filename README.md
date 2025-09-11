@@ -24,6 +24,29 @@ Provide privileged (admin-role) tooling to:
 
 Stats API now also reports `metrics.longestView` (media_key + duration_ms) sourced from `media_view_sessions` recorded via NudeForge / NudeFlow view-session events.
 
+## Caching & Introspection
+
+NudeAdmin aligns with the platform caching strategy:
+
+| Asset Type | Policy |
+|------------|--------|
+| `/shared/*.css` & `/shared/*.js` | `public, max-age=3600` |
+| `/shared/*.(png|jpg|jpeg|gif|webp|svg)` | `public, max-age=86400, stale-while-revalidate=604800` |
+| Thumbnail route `/thumbs/output/*` | `public, max-age=86400` |
+| Theme CSS (`/assets/theme.css`) | `public, max-age=3600` |
+| `/output/*` originals | (default express static headers – adjust if needed) |
+
+Introspection endpoint (unauthenticated, for ops/debug):
+
+```
+GET /__cache-policy
+```
+
+Returns a JSON structure describing active policies and ETag mode (strong ETags enabled). Secure or disable if exposing publicly.
+Optional hardening:
+- Set `REQUIRE_CACHE_POLICY_AUTH=true` to hide the endpoint unless a session user is present (responds 404 otherwise).
+- Automatic rate limit: 60 requests/minute/IP (HTTP 429 when exceeded).
+
 ## Layout & Styling
 The app consumes the shared theme directly by mounting the `NudeShared` directory at `/shared`.
 

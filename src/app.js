@@ -25,6 +25,8 @@ const WORKSPACE_ROOT = path.resolve(PROJECT_ROOT, '..');
 dotenv.config({ path: path.join(PROJECT_ROOT, '.env') });
 
 const app = express();
+// Align with NudeForge: use strong ETags for consistent conditional GET behavior
+app.set('etag', 'strong');
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
@@ -68,9 +70,20 @@ app.use('/static', express.static(path.join(__dirname, 'public')));
   // Auth routes mounted (signup/login etc.)
   app.use('/auth', buildAuthRouter(express.Router));
 
-// Attempt to mount shared theme & client scripts
+// Attempt to mount shared theme & client scripts with tiered caching similar to NudeForge
 const sharedDir = process.env.NUDESHARED_DIR || path.resolve(PROJECT_ROOT, '..', 'NudeShared');
-app.use('/shared', express.static(sharedDir));
+const sharedStaticOptions = {
+  etag: true,
+  lastModified: true,
+  setHeaders: (res, filePath) => {
+    if (/\.(css|js)$/i.test(filePath)) {
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+    } else if (/\.(png|jpe?g|gif|webp|svg)$/i.test(filePath)) {
+      res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+    }
+  }
+};
+app.use('/shared', express.static(sharedDir, sharedStaticOptions));
 
 // Unified theme mount
 mountTheme(app, { projectDir: path.join(__dirname), sharedDir, logger: console });
@@ -152,8 +165,8 @@ app.use(async (req, res, next) => {
 // Auth gate middleware – allow auth endpoints & health without session
 function authGate(req, res, next){
   if (req.session?.user?.id) return next();
-  // Allow auth endpoints, assets, health, socket.io, and APIs (APIs return JSON errors themselves)
-  if (req.path.startsWith('/auth') || req.path.startsWith('/static') || req.path.startsWith('/shared') || req.path.startsWith('/health') || req.path.startsWith('/socket.io') || req.path.startsWith('/api')) {
+  // Allow unauthenticated access to auth endpoints, static assets, health probes, cache policy introspection, socket.io, and APIs
+  if (req.path.startsWith('/auth') || req.path.startsWith('/static') || req.path.startsWith('/shared') || req.path.startsWith('/health') || req.path.startsWith('/__cache-policy') || req.path.startsWith('/socket.io') || req.path.startsWith('/api')) {
     return next();
   }
   // Render unified shared layout page that auto-opens auth modal
@@ -423,6 +436,39 @@ app.get('/profile', (req, res) => { res.render('profile', { title: 'Profile' });
 
 // Health
 app.get('/health', (req, res) => res.json({ ok: true, uptime: process.uptime() }));
+
+// Cache policy introspection (parity with NudeForge). Informational only.
+const __adminCacheHits = new Map();
+function cachePolicyRateLimitedAdmin(req){
+  const key = (req.headers['x-forwarded-for'] || req.ip || 'local').toString().split(',')[0].trim();
+  const now = Date.now();
+  const windowMs = 60_000; const max = 60;
+  const arr = __adminCacheHits.get(key) || [];
+  const recent = arr.filter(ts=> now - ts < windowMs);
+  recent.push(now);
+  __adminCacheHits.set(key, recent);
+  return recent.length <= max;
+}
+app.get('/__cache-policy', (req, res) => {
+  if (!cachePolicyRateLimitedAdmin(req)) return res.status(429).json({ error: 'Too many requests' });
+  if (process.env.REQUIRE_CACHE_POLICY_AUTH === 'true' && !req.session?.user?.id) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+  res.json({
+    etag: app.get('etag'),
+    service: 'NudeAdmin',
+    policies: {
+      shared: {
+        cssJs: 'public, max-age=3600',
+        images: 'public, max-age=86400, stale-while-revalidate=604800'
+      },
+      thumbnails: 'public, max-age=86400', // /thumbs/output route
+  output: 'default (express static – adjust if needed)',
+      themeCss: 'public, max-age=3600' // served via mountTheme
+    },
+    note: 'Adjust caching logic in app.js if changing policies. This endpoint is unauthenticated and for ops/debug.'
+  });
+});
 
 // --- AuthZ helpers ---
 function requireAuth(req, res, next){ if(!req.session?.user?.id) return res.status(401).json({ ok:false, error:'Not authenticated'}); next(); }
