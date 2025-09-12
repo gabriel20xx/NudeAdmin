@@ -2,6 +2,12 @@
 
 Administrative dashboard for managing the NudeForge / NudeFlow platform and shared database.
 
+## Runtime Guarantees (Recent Additions)
+* Migrations-before-listen: The server now awaits database initialization and migrations completion before binding the HTTP port. First request is therefore guaranteed to see a fully migrated schema (no transient 500s due to missing tables).
+* Structured Logging: All analytics/tag endpoints emit start/success (or error) domain logs (DOMAIN: ADMIN_MEDIA / ADMIN_STATS). Use these for lightweight ops tracing rather than ad-hoc console output.
+* Dashboard Image Overlay: Leader tiles (most viewed/liked/saved/downloaded, fastest/slowest generation) are now clickable to open a full-size preview overlay (accessible, with Close button + backdrop click to dismiss). Tests assert presence of overlay DOM.
+* Longest View Metric: `metrics.longestView` (media_key + duration_ms) returned in stats API when available.
+
 ## Goals
 Provide privileged (admin-role) tooling to:
 - Inspect and manage users (activation, roles, bans).

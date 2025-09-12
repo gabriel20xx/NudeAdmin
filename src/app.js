@@ -170,6 +170,7 @@ app.get('/dashboard', (req, res) => { res.render('dashboard', { title: 'Dashboar
 // Stats API for dashboard
 app.get('/api/admin/stats', requireAuth, requireAdmin, async (req,res)=>{
   try{
+    Logger.info('ADMIN_STATS','stats_start',{ period: req.query?.period, filter: req.query?.filter });
     const { period = '7d', filter = '' } = req.query || {};
     const driver = getDriver();
     const getDateCond = (col) => {
@@ -394,7 +395,7 @@ app.get('/api/admin/stats', requireAuth, requireAdmin, async (req,res)=>{
       longestView = rows?.[0] || null;
     }
 
-    res.json({
+    const payload = {
       success:true,
       totals: {
         users: Number(u?.[0]?.c||0),
@@ -416,7 +417,9 @@ app.get('/api/admin/stats', requireAuth, requireAdmin, async (req,res)=>{
   conversion: conv,
   longestView
       }
-    });
+    };
+    res.json(payload);
+    Logger.info('ADMIN_STATS','stats_success', { totals: payload.totals, leaders: !!payload.leaders, metrics: !!payload.metrics });
   }catch(e){ Logger.error('ADMIN_STATS', e); res.status(500).json({ success:false, error:'Failed to load stats' }); }
 });
 app.get('/users', (req, res) => { res.render('users', { title: 'Users' }); });
@@ -559,18 +562,23 @@ app.post('/api/admin/media/actions', requireAuth, requireAdmin, async (req,res)=
 });
 
 
-// Initialize DB/migrations on startup
-(async ()=>{
-  try { await initDb(); await runMigrations(); Logger.info('NUDEADMIN','DB ready'); } catch(e){ Logger.error('NUDEADMIN','DB init failed', e); }
-})();
-
+// Initialize DB/migrations BEFORE starting server to guarantee readiness for first request
 const PORT = process.env.PORT || 8090;
-// Only start server if this file is the entrypoint (not when imported for tests)
-if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
-  app.listen(PORT, () => {
-    console.log(`[nudeadmin] listening on port ${PORT}`);
-  });
+async function start(){
+  try {
+    Logger.info('NUDEADMIN','DB_INIT_START');
+    await initDb();
+    Logger.info('NUDEADMIN','MIGRATIONS_START');
+    await runMigrations();
+    Logger.info('NUDEADMIN','DB_READY');
+  } catch(e){
+    Logger.error('NUDEADMIN','DB_INIT_FAILED', e);
+  }
+  if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
+    app.listen(PORT, () => { console.log(`[nudeadmin] listening on port ${PORT}`); });
+  }
 }
+start();
 
 export { app };
 

@@ -21,8 +21,14 @@
       .tile-number{font-size:2.25rem;line-height:1.1;font-weight:800;letter-spacing:.2px}
       .tile-sub{font-size:.82rem;color:var(--text-muted,#9a9a9a);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       .tile-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
-      .tile-media{position:relative;aspect-ratio:16/9;border-radius:8px;overflow:hidden;background:#0f0f0f;border:1px solid var(--panel-border,#2a2a2a)}
-      .tile-media img{width:100%;height:100%;object-fit:cover;display:block}
+      .tile-media{position:relative;aspect-ratio:16/9;border-radius:8px;overflow:hidden;background:#0f0f0f;border:1px solid var(--panel-border,#2a2a2a);cursor:pointer}
+      .tile-media img{width:100%;height:100%;object-fit:contain;display:block;background:#000}
+      .dash-img-overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.82);z-index:5000;padding:2rem;backdrop-filter:blur(4px)}
+      .dash-img-frame{max-width:90vw;max-height:90vh;position:relative;display:flex;align-items:center;justify-content:center}
+      .dash-img-frame img{max-width:100%;max-height:100%;object-fit:contain;box-shadow:0 0 0 1px #333,0 4px 28px rgba(0,0,0,.6);border-radius:8px}
+      .dash-img-close{position:absolute;top:-38px;right:0;background:#111;border:1px solid #333;color:#eee;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:.8rem;display:inline-flex;align-items:center;gap:.35rem}
+      .dash-img-meta{position:absolute;left:0;bottom:-34px;font-size:.75rem;color:#ddd;background:rgba(0,0,0,.55);padding:4px 8px;border-radius:4px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      @media (max-width: 680px){ .dash-img-close{top:8px;right:8px} .dash-img-meta{bottom:8px;left:8px;right:8px} }
     </style>
 
     <!-- Totals: title + big number tiles -->
@@ -103,8 +109,40 @@
     <div id="dashLive" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
   </div>
 </section>
+<div id="dashImageOverlay" class="dash-img-overlay" hidden aria-hidden="true" role="dialog" aria-label="Media preview">
+  <div class="dash-img-frame">
+    <button type="button" class="dash-img-close" id="dashImgClose"><i class="fa fa-times"></i> Close</button>
+    <img id="dashImgFull" alt="Full preview" />
+    <div id="dashImgMeta" class="dash-img-meta"></div>
+  </div>
+</div>
 <script>
   (async function(){
+    // Hoisted early DOM refs & overlay/live helpers to avoid TDZ errors when loadStats runs before their declaration
+    const overlay = document.getElementById('dashOverlay');
+    const live = document.getElementById('dashLive');
+    let overlayTimer;
+    function showOverlaySoon(){
+      clearTimeout(overlayTimer);
+      overlayTimer = setTimeout(()=>{
+        if(!overlay) return;
+        overlay.removeAttribute('hidden');
+        overlay.classList.add('active');
+        overlay.setAttribute('aria-hidden','false');
+        console.info('[ACTION] dashboard_refresh_overlay_show');
+      },120);
+    }
+    function hideOverlay(){
+      clearTimeout(overlayTimer);
+      if(!overlay) return;
+      overlay.classList.remove('active');
+      overlay.setAttribute('aria-hidden','true');
+      overlay.setAttribute('hidden','');
+      console.info('[ACTION] dashboard_refresh_overlay_hide');
+    }
+    function announcePending(){ if(live) live.textContent = 'Loading dashboard stats…'; }
+    function announceComplete(){ if(live) live.textContent = 'Dashboard stats updated at '+ new Date().toLocaleTimeString(); }
+    function announceError(){ if(live) live.textContent = 'Dashboard load failed at '+ new Date().toLocaleTimeString(); }
     const encodePathSegments = (s)=> (typeof s === 'string') ? s.split('/').map(encodeURIComponent).join('/') : '';
     const toThumbUrl = (key, w=320)=> key ? `/thumbs/output/${encodePathSegments(key)}?w=${w}` : '';
     const setTileNumber = (id, val)=>{ const el=document.getElementById(id); if(el) el.textContent = (val ?? '—'); };
@@ -140,6 +178,8 @@
 
     async function loadStats(){
       announcePending();
+      const startedAt = Date.now();
+      console.info('[ACTION] dashboard_stats_load_start', { ts: startedAt });
       showOverlaySoon();
       const period = (document.getElementById('dashPeriod')?.value)||'7d';
       const filter = (document.getElementById('dashFilter')?.value||'').trim();
@@ -196,13 +236,14 @@
       setRate('rateDownload', conv.downloadRate);
       announceComplete();
       hideOverlay();
+      console.info('[ACTION] dashboard_stats_load_success', { ms: Date.now()-startedAt });
     }
 
     function scheduleAutoRefresh(){
       const cb = document.getElementById('dashAutoRefresh');
       let timer;
       const tick = async ()=>{
-        try { await loadStats(); } catch(e){ console.error('Dashboard stats failed', e); hideOverlay(); announceError(); }
+        try { await loadStats(); } catch(e){ console.error('Dashboard stats failed', e); hideOverlay(); announceError(); console.info('[ACTION] dashboard_stats_load_error', { error: String(e&&e.message||e) }); }
         if (cb?.checked) timer = setTimeout(tick, 10000);
       };
       cb?.addEventListener('change', ()=>{
@@ -224,31 +265,42 @@
       });
     }
     scheduleAutoRefresh();
-    // Overlay + live region helpers
-    const overlay = document.getElementById('dashOverlay');
-    const live = document.getElementById('dashLive');
-    let overlayTimer;
-    function showOverlaySoon(){
-      clearTimeout(overlayTimer);
-      overlayTimer = setTimeout(()=>{
-        if(!overlay) return;
-        overlay.removeAttribute('hidden');
-        overlay.classList.add('active');
-        overlay.setAttribute('aria-hidden','false');
-        console.info('[ACTION] dashboard_refresh_overlay_show');
-      },120);
-    }
-    function hideOverlay(){
-      clearTimeout(overlayTimer);
-      if(!overlay) return;
-      overlay.classList.remove('active');
-      overlay.setAttribute('aria-hidden','true');
-      overlay.setAttribute('hidden','');
-      console.info('[ACTION] dashboard_refresh_overlay_hide');
-    }
-    function announcePending(){ if(live) live.textContent = 'Loading dashboard stats…'; }
-    function announceComplete(){ if(live) live.textContent = 'Dashboard stats updated at '+ new Date().toLocaleTimeString(); }
-    function announceError(){ if(live) live.textContent = 'Dashboard load failed at '+ new Date().toLocaleTimeString(); }
     document.querySelector('.panel-body')?.classList.add('pos-relative');
+
+    // --- Image overlay (reuses pattern from media tab simplified) ---
+    const overlayEl = document.getElementById('dashImageOverlay');
+    const fullImg = document.getElementById('dashImgFull');
+    const metaEl = document.getElementById('dashImgMeta');
+    const closeBtn = document.getElementById('dashImgClose');
+    function openImageOverlay(src, key){
+      if(!overlayEl || !fullImg) return;
+      fullImg.src = src;
+      fullImg.alt = key || 'Media item';
+      if(metaEl) metaEl.textContent = key || src;
+      overlayEl.hidden = false;
+      overlayEl.setAttribute('aria-hidden','false');
+      document.body.classList.add('no-scroll');
+      console.info('[ACTION] dashboard_leader_image_open', { key });
+    }
+    function closeImageOverlay(){
+      if(!overlayEl) return;
+      overlayEl.hidden = true;
+      overlayEl.setAttribute('aria-hidden','true');
+      try{ document.body.classList.remove('no-scroll'); }catch{}
+      console.info('[ACTION] dashboard_leader_image_close');
+    }
+    closeBtn?.addEventListener('click', closeImageOverlay);
+    overlayEl?.addEventListener('click', (e)=>{ if(e.target === overlayEl) closeImageOverlay(); });
+    ['MostViews','MostLikes','MostSaves','MostDownloads','Fastest','Slowest'].forEach(prefix=>{
+      const img = document.getElementById('img'+prefix);
+      if(!img) return;
+      img.addEventListener('click', ()=>{
+        const key = img.getAttribute('alt') || '';
+        // Use a larger thumb; fallback to existing src
+        const base = (img.getAttribute('src')||'').split('?')[0];
+        const big = base ? base + '?w=1280' : img.getAttribute('src');
+        openImageOverlay(big, key);
+      });
+    });
   })();
 </script>
