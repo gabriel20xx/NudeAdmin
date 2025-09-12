@@ -4,37 +4,38 @@
   <p class="text-dim">Manage platform users, roles, and status.</p>
   <div class="panel-body" id="usersPanel">
     <div class="card" style="margin-bottom:.75rem;">
-      <div class="card-body" style="display:grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap:.5rem; align-items:end;">
+  <div class="card-body user-create-grid grid-auto-200">
         <div>
           <div><small class="text-dim">Email</small></div>
-          <input type="email" id="newUserEmail" class="auth-input" placeholder="user@example.com" />
+          <input type="email" id="newUserEmail" class="auth-input full-width" placeholder="user@example.com" />
         </div>
         <div>
           <div><small class="text-dim">Username (optional)</small></div>
-          <input type="text" id="newUserUsername" class="auth-input" placeholder="username" />
+          <input type="text" id="newUserUsername" class="auth-input full-width" placeholder="username" />
         </div>
         <div>
           <div><small class="text-dim">Password</small></div>
           <div class="auth-input-wrap">
-            <input type="password" id="newUserPassword" class="auth-input" placeholder="min 6 chars" />
+            <input type="password" id="newUserPassword" class="auth-input full-width" placeholder="min 6 chars" />
             <button type="button" class="pw-toggle" aria-label="Show password" data-target="newUserPassword" title="Show/Hide password"><i class="fa fa-eye"></i></button>
           </div>
         </div>
         <div>
           <div><small class="text-dim">Role</small></div>
-          <span class="ui-select-wrapper"><select id="newUserRole" class="ui-select">
+          <span class="ui-select-wrapper full-width"><select id="newUserRole" class="ui-select full-width">
             <option value="user">user</option>
             <option value="moderator">moderator</option>
             <option value="admin">admin</option>
           </select></span>
         </div>
-        <div>
-          <button id="createUserBtn" class="btn-accent">Create User</button>
+        <div class="flex-align-end">
+          <button id="createUserBtn" class="btn-accent full-width">Create User</button>
         </div>
       </div>
     </div>
-    <div class="toolbar" style="display:flex; gap:.5rem; justify-content:center; align-items:center; flex-wrap:wrap;">
+    <div class="toolbar">
   <input type="text" id="userSearch" class="auth-input" placeholder="Search by email or username..." style="min-width:260px;" />
+      <button id="usersRefresh" class="btn-ghost btn-refresh" type="button" title="Refresh users"><i class="fa fa-rotate-right"></i><span class="hide-xs">Refresh</span></button>
       <div class="actions" style="display:flex; gap:.35rem; align-items:center;">
   <span class="ui-select-wrapper"><select id="userBulkAction" class="ui-select">
           <option value="">Bulk Action</option>
@@ -57,6 +58,11 @@
     <div id="usersList" class="users-list" style="margin-top:.75rem; display:flex; flex-direction:column; gap:.5rem;">
       <div class="placeholder">Loading users...</div>
     </div>
+    <div id="usersOverlay" class="refresh-overlay" aria-hidden="true" hidden>
+      <div class="loader" role="status" aria-label="Loading"></div>
+      <div class="status-text">Loading…</div>
+    </div>
+    <div id="usersLive" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
   </div>
 </section>
 
@@ -86,6 +92,8 @@
   function fmtTime(t){ if(!t) return ''; try { const d=new Date(t); return d.toISOString().replace('T',' ').slice(0,19); } catch { return String(t); } }
 
   async function load(){
+    announcePending();
+    showOverlaySoon();
     listRoot.innerHTML = '<div class="placeholder">Loading users...</div>';
     try{
       const d = await api(`/api/admin/users?search=${encodeURIComponent(term)}`);
@@ -95,10 +103,12 @@
         const q = term.toLowerCase();
         users = users.filter(u => (u.username||'').toLowerCase().includes(q) || (u.email||'').toLowerCase().includes(q));
       }
-      if(!users.length){ listRoot.innerHTML = '<div class="placeholder">No users found</div>'; wire(); return; }
+      if(!users.length){ listRoot.innerHTML = '<div class="placeholder">No users found</div>'; wire(); announceComplete(0); hideOverlay(); return; }
       listRoot.innerHTML = users.map(u=>renderUserItem(u)).join('');
       wire();
+      announceComplete(users.length);
     }catch(e){ listRoot.innerHTML = `<div class="error">${e.message}</div>`; }
+    hideOverlay();
   }
 
   // Local password visibility toggle for Create User field
@@ -272,6 +282,38 @@
   // Add a global select all checkbox to toolbar
   const selAll = document.createElement('label'); selAll.style.marginLeft='.5rem'; selAll.innerHTML = '<input type="checkbox" id="userSelectAllGlobal" class="ui-checkbox" /> Select all';
   panel.querySelector('.toolbar').appendChild(selAll);
+  const refreshBtn = document.getElementById('usersRefresh');
+  if(refreshBtn){
+    refreshBtn.addEventListener('click', ()=>{
+      refreshBtn.disabled = true; refreshBtn.classList.add('spinning');
+      Promise.resolve(load()).catch(()=>{}).finally(()=>{ refreshBtn.disabled=false; refreshBtn.classList.remove('spinning'); });
+    });
+  }
+  // Overlay + live region helpers
+  const overlay = document.getElementById('usersOverlay');
+  const live = document.getElementById('usersLive');
+  let overlayTimer;
+  function showOverlaySoon(){
+    clearTimeout(overlayTimer);
+    overlayTimer = setTimeout(()=>{
+      if(!overlay) return;
+      overlay.removeAttribute('hidden');
+      overlay.classList.add('active');
+      overlay.setAttribute('aria-hidden','false');
+      console.info('[ACTION] users_refresh_overlay_show');
+    },120);
+  }
+  function hideOverlay(){
+    clearTimeout(overlayTimer);
+    if(!overlay) return;
+    overlay.classList.remove('active');
+    overlay.setAttribute('aria-hidden','true');
+    overlay.setAttribute('hidden','');
+    console.info('[ACTION] users_refresh_overlay_hide');
+  }
+  function announcePending(){ if(live) live.textContent = 'Loading users…'; }
+  function announceComplete(count){ if(live) live.textContent = `Loaded ${count} users at ${new Date().toLocaleTimeString()}`; }
+  document.getElementById('usersPanel')?.classList.add('pos-relative');
   load();
 })();
 </script>

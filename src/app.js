@@ -421,6 +421,8 @@ app.get('/api/admin/stats', requireAuth, requireAdmin, async (req,res)=>{
 });
 app.get('/users', (req, res) => { res.render('users', { title: 'Users' }); });
 app.get('/media', (req, res) => { res.render('media', { title: 'Media' }); });
+// Legacy/alternate path support (some tests or old links may still request /admin/media)
+app.get('/admin/media', (req, res) => { res.redirect(302, '/media'); });
 app.get('/settings', (req, res) => { res.render('settings', { title: 'Settings' }); });
 app.get('/profile', (req, res) => { res.render('profile', { title: 'Profile' }); });
 
@@ -498,21 +500,62 @@ app.use('/api', buildAdminSettingsRouter({
 
 // Batch media actions
 app.post('/api/admin/media/actions', requireAuth, requireAdmin, async (req,res)=>{
-  try{
-    const { action, ids, title, category } = req.body||{};
-    if(!Array.isArray(ids) || ids.length===0) return res.status(400).json({ok:false,error:'No ids'});
+  try {
+    const { action, ids, title, category, tags } = req.body||{};
+    if(!Array.isArray(ids) || !ids.length) return res.status(400).json({ ok:false, error:'No ids'});
     const placeholders = ids.map(()=>'?').join(',');
-    let done=0;
+    const parseTags = (val)=> Array.from(new Set(String(val||'').split(/[ ,]+/).map(s=> s.trim().toLowerCase()).filter(Boolean).map(s=> s.slice(0,40))));
+    let done = 0; let r;
     switch(action){
-      case 'rename': { if(!title) return res.status(400).json({ok:false,error:'title required'}); const r=await query(`UPDATE media SET title=? WHERE id IN (${placeholders})`, [title, ...ids]); done=r.changes?? r.rowCount ?? 0; break; }
-      case 'deactivate': { const r=await query(`UPDATE media SET active=0 WHERE id IN (${placeholders})`, ids); done=r.changes?? r.rowCount ?? 0; break; }
-      case 'activate': { const r=await query(`UPDATE media SET active=1 WHERE id IN (${placeholders})`, ids); done=r.changes?? r.rowCount ?? 0; break; }
-      case 'delete': { const r=await query(`DELETE FROM media WHERE id IN (${placeholders})`, ids); done=r.changes?? r.rowCount ?? 0; break; }
-      case 'set_category': { if(!category) return res.status(400).json({ok:false,error:'category required'}); const r=await query(`UPDATE media SET category=? WHERE id IN (${placeholders})`, [category, ...ids]); done=r.changes?? r.rowCount ?? 0; break; }
-      default: return res.status(400).json({ok:false,error:'Unknown action'});
+      case 'rename': {
+        if(!title) return res.status(400).json({ok:false,error:'title required'});
+        r = await query(`UPDATE media SET title=? WHERE id IN (${placeholders})`, [title, ...ids]);
+        break;
+      }
+      case 'deactivate': {
+        r = await query(`UPDATE media SET active=0 WHERE id IN (${placeholders})`, ids);
+        break;
+      }
+      case 'activate': {
+        r = await query(`UPDATE media SET active=1 WHERE id IN (${placeholders})`, ids);
+        break;
+      }
+      case 'delete': {
+        r = await query(`DELETE FROM media WHERE id IN (${placeholders})`, ids);
+        break;
+      }
+      case 'add_tags': {
+        const tagList = parseTags(tags);
+        if(!tagList.length) return res.status(400).json({ ok:false, error:'tags required'});
+        let inserted=0;
+        for(const mid of ids){
+          for(const tg of tagList){
+            try { await query('INSERT OR IGNORE INTO media_tags (media_id, tag) VALUES (?,?)', [mid, tg]); inserted++; } catch {/*ignore*/}
+          }
+        }
+        r = { changes: inserted };
+        break;
+      }
+      case 'remove_tags': {
+        const tagList = parseTags(tags);
+        if(!tagList.length) return res.status(400).json({ ok:false, error:'tags required'});
+        const tagMarks = tagList.map(()=>'?').join(',');
+        r = await query(`DELETE FROM media_tags WHERE media_id IN (${placeholders}) AND tag IN (${tagMarks})`, [...ids, ...tagList]);
+        break;
+      }
+      case 'replace_tags': {
+        const tagList = parseTags(tags);
+        await query(`DELETE FROM media_tags WHERE media_id IN (${placeholders})`, ids);
+        let inserted=0;
+        for(const mid of ids){ for(const tg of tagList){ try { await query('INSERT OR IGNORE INTO media_tags (media_id, tag) VALUES (?,?)', [mid, tg]); inserted++; } catch {} } }
+        r = { changes: inserted };
+        break;
+      }
+      default: return res.status(400).json({ ok:false, error:'Unknown action'});
     }
+    done = r?.rowCount ?? r?.changes ?? 0;
     res.json({ ok:true, action, affected: done });
-  }catch(e){ Logger.error('ADMIN_MEDIA_ACTION', e); res.status(500).json({ok:false,error:'Action failed'}); }
+  } catch(e){ Logger.error('ADMIN_MEDIA_ACTION', e); res.status(500).json({ ok:false, error:'Action failed'}); }
 });
 
 

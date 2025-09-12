@@ -2,7 +2,7 @@
 <section class="panel">
   <h1 class="panel-title">Dashboard</h1>
   <div class="panel-body">
-    <div class="toolbar" style="display:flex; gap:.5rem; justify-content:center; align-items:center; flex-wrap:wrap; margin-bottom:.75rem;">
+    <div class="toolbar" style="margin-bottom:.75rem;">
       <input type="text" id="dashFilter" class="auth-input" placeholder="Filter by user or key..." style="min-width:260px;" />
   <span class="ui-select-wrapper"><select id="dashPeriod" class="ui-select">
         <option value="7d">Last 7 days</option>
@@ -12,6 +12,7 @@
       <label style="display:inline-flex; align-items:center; gap:.35rem;">
         <input type="checkbox" id="dashAutoRefresh" class="ui-checkbox" checked /> Auto refresh
       </label>
+      <button id="dashRefresh" class="btn-ghost btn-refresh" type="button" title="Manual refresh"><i class="fa fa-rotate-right"></i><span class="hide-xs">Refresh</span></button>
     </div>
     <style>
       .tiles-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
@@ -95,6 +96,11 @@
         <div class="tile-sub">downloads per view</div>
       </div>
     </div>
+    <div id="dashOverlay" class="refresh-overlay" aria-hidden="true" hidden>
+      <div class="loader" role="status" aria-label="Loading"></div>
+      <div class="status-text">Loading…</div>
+    </div>
+    <div id="dashLive" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
   </div>
 </section>
 <script>
@@ -133,6 +139,8 @@
     };
 
     async function loadStats(){
+      announcePending();
+      showOverlaySoon();
       const period = (document.getElementById('dashPeriod')?.value)||'7d';
       const filter = (document.getElementById('dashFilter')?.value||'').trim();
       const qs = new URLSearchParams();
@@ -186,13 +194,15 @@
       setRate('rateLike', conv.likeRate);
       setRate('rateSave', conv.saveRate);
       setRate('rateDownload', conv.downloadRate);
+      announceComplete();
+      hideOverlay();
     }
 
     function scheduleAutoRefresh(){
       const cb = document.getElementById('dashAutoRefresh');
       let timer;
       const tick = async ()=>{
-        try { await loadStats(); } catch(e){ console.error('Dashboard stats failed', e); }
+        try { await loadStats(); } catch(e){ console.error('Dashboard stats failed', e); hideOverlay(); announceError(); }
         if (cb?.checked) timer = setTimeout(tick, 10000);
       };
       cb?.addEventListener('change', ()=>{
@@ -204,8 +214,41 @@
     }
 
     // Wire filter & period
-    document.getElementById('dashFilter')?.addEventListener('input', ()=>{ loadStats().catch(e=>console.error(e)); });
-    document.getElementById('dashPeriod')?.addEventListener('change', ()=>{ loadStats().catch(e=>console.error(e)); });
+    document.getElementById('dashFilter')?.addEventListener('input', ()=>{ loadStats().catch(e=>{ console.error(e); hideOverlay(); announceError(); }); });
+    document.getElementById('dashPeriod')?.addEventListener('change', ()=>{ loadStats().catch(e=>{ console.error(e); hideOverlay(); announceError(); }); });
+    const manual = document.getElementById('dashRefresh');
+    if(manual){
+      manual.addEventListener('click', ()=>{
+        manual.disabled = true; manual.classList.add('spinning');
+        loadStats().catch(e=>{ console.error(e); hideOverlay(); announceError(); }).finally(()=>{ manual.disabled=false; manual.classList.remove('spinning'); });
+      });
+    }
     scheduleAutoRefresh();
+    // Overlay + live region helpers
+    const overlay = document.getElementById('dashOverlay');
+    const live = document.getElementById('dashLive');
+    let overlayTimer;
+    function showOverlaySoon(){
+      clearTimeout(overlayTimer);
+      overlayTimer = setTimeout(()=>{
+        if(!overlay) return;
+        overlay.removeAttribute('hidden');
+        overlay.classList.add('active');
+        overlay.setAttribute('aria-hidden','false');
+        console.info('[ACTION] dashboard_refresh_overlay_show');
+      },120);
+    }
+    function hideOverlay(){
+      clearTimeout(overlayTimer);
+      if(!overlay) return;
+      overlay.classList.remove('active');
+      overlay.setAttribute('aria-hidden','true');
+      overlay.setAttribute('hidden','');
+      console.info('[ACTION] dashboard_refresh_overlay_hide');
+    }
+    function announcePending(){ if(live) live.textContent = 'Loading dashboard stats…'; }
+    function announceComplete(){ if(live) live.textContent = 'Dashboard stats updated at '+ new Date().toLocaleTimeString(); }
+    function announceError(){ if(live) live.textContent = 'Dashboard load failed at '+ new Date().toLocaleTimeString(); }
+    document.querySelector('.panel-body')?.classList.add('pos-relative');
   })();
 </script>
