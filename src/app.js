@@ -11,6 +11,7 @@ import { runMigrations } from '../../NudeShared/server/db/migrate.js';
 import { query, getDriver } from '../../NudeShared/server/db/db.js';
 import session from 'express-session';
 import { buildAuthRouter } from '../../NudeShared/server/api/authRoutes.js';
+import { buildProfileRouter } from '../../NudeShared/server/api/profileRoutes.js';
 import { buildUsersAdminRouter } from '../../NudeShared/server/api/usersRoutes.js';
 import { buildAdminMediaRouter } from '../../NudeShared/server/api/adminMediaRoutes.js';
 import { buildAdminSettingsRouter } from '../../NudeShared/server/api/adminSettingsRoutes.js';
@@ -59,6 +60,9 @@ app.use((req, res, next) => {
   next();
 });
 
+// Resolve sharedDir early (needed by subsequent static mounts)
+const sharedDir = process.env.NUDESHARED_DIR || path.resolve(PROJECT_ROOT, '..', 'NudeShared');
+
 // Static: serve admin public and mount shared assets if available
 app.use('/static', express.static(path.join(__dirname, 'public')));
   app.use(express.json({ limit: '1mb' }));
@@ -70,9 +74,14 @@ app.use('/static', express.static(path.join(__dirname, 'public')));
 
   // Auth routes mounted (signup/login etc.)
   app.use('/auth', buildAuthRouter(express.Router));
+  // Profile API (shared implementation) under /api
+  app.use('/api', buildProfileRouter({ utils: { createSuccessResponse:(d,m='OK')=>({success:true,data:d,message:m}), createErrorResponse:(e)=>({success:false,error:e}), infoLog:()=>{}, errorLog:()=>{} }, siteTitle: 'NudeAdmin' }));
+  // Serve default avatar asset if missing path referenced
+  app.use('/images', express.static(path.join(sharedDir, 'client', 'images')));
+  // Lightweight readiness for tests that only need profile
+  app.get('/api/__ready', (req,res)=> res.json({ ok:true }));
 
 // Shared static assets (tiered caching)
-const sharedDir = process.env.NUDESHARED_DIR || path.resolve(PROJECT_ROOT, '..', 'NudeShared');
 mountSharedStatic(app, { candidates: [sharedDir], logger: Logger });
 
 // Unified theme mount
