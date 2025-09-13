@@ -124,6 +124,34 @@ app.get('/thumbs/output/:rest(*)', async (req, res) => {
   }
 });
 
+// Provide a lightweight factory for test environment to isolate thumbnail behavior without
+// spinning up full admin auth/routes overhead. The test expects buildThumbnailTestApp to exist.
+export function buildThumbnailTestApp(outputDir){
+  const tApp = express();
+  tApp.set('etag','strong');
+  tApp.get('/thumbs/output/:rest(*)', async (req,res)=>{
+    try {
+      const rest = String(req.params.rest||'');
+      // IMPORTANT: only strip LEADING dot segments / slashes to prevent path traversal while
+      // preserving valid file extensions (the previous regex removed the first dot anywhere,
+      // breaking filenames like sample.png -> samplepng and causing false 404s in tests).
+      const normalized = path.normalize(rest)
+        .replace(/^\.+[\\\/]?/,'')  // drop leading ./ or ../ chains
+        .replace(/^[\\\/]+/,'');     // drop any leading slashes
+      const abs = path.join(outputDir, normalized);
+      if(!fs.existsSync(abs)) return res.status(404).send('Not found');
+      const w = Number(req.query.w)||undefined; const h = Number(req.query.h)||undefined;
+      const result = await getOrCreateOutputThumbnail(outputDir, normalized, { w, h, persist:true });
+      res.set({ 'Cache-Control':'public, max-age=60', 'Content-Type':'image/jpeg' });
+      return res.sendFile(result.filePath);
+    } catch (e){
+      Logger.error('ADMIN_THUMBS','Error (test factory) serving output thumbnail', { error: e?.message });
+      return res.status(404).send('Thumbnail not available');
+    }
+  });
+  return tApp;
+}
+
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
@@ -591,28 +619,4 @@ start();
 
 export { app };
 
-// --- Test Helpers ---
-// Lightweight app exposing only thumbnail route for isolated testing without full admin initialization.
-export function buildThumbnailTestApp(outputDir){
-  const tApp = express();
-  function safeOutputDir(){ return outputDir || resolveOutputDir(); }
-  tApp.get('/thumbs/output/:rest(*)', async (req, res) => {
-    try {
-      const currentOutputDir = safeOutputDir();
-      const rest = String(req.params.rest || '');
-      const normalized = path.normalize(rest).replace(/^\.+[\\\/]?/, '').replace(/^[\\\/]+/, '');
-      const abs = path.join(currentOutputDir, normalized);
-      const rel = path.relative(currentOutputDir, abs);
-      if (rel.startsWith('..') || path.isAbsolute(rel)) return res.status(400).send('Invalid path');
-      if (!fs.existsSync(abs)) return res.status(404).send('Not found');
-      const w = Number(req.query.w) || undefined;
-      const h = Number(req.query.h) || undefined;
-      const filePath = await getOrCreateOutputThumbnail(currentOutputDir, normalized, { w, h });
-      res.set({ 'Cache-Control': 'public, max-age=60', 'Content-Type': 'image/jpeg' });
-      return res.sendFile(filePath);
-    } catch (e) {
-      return res.status(404).send('Thumbnail not available');
-    }
-  });
-  return tApp;
-}
+// Duplicate buildThumbnailTestApp removed (original defined earlier with persist:true)
