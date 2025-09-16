@@ -20,6 +20,24 @@ Provide privileged (admin-role) tooling to:
 - EJS templates (server-rendered views)
 - Shared design tokens + UI utilities from `NudeShared` (`/shared/client/theme.css`, scripts)
 
+## Session Management (Shared Factory)
+Sessions are now provisioned via the shared `createStandardSessionMiddleware` exported from `NudeShared/server/index.js` (see central Copilot instructions for deep details). This replaces any ad-hoc `express-session` setup.
+
+Key behaviors:
+- Automatically prefers a Postgres session store (via `connect-pg-simple`) when `DATABASE_URL` is set, else falls back to in‑memory (dev/test) with a one-time WARN.
+- Standard cookie attributes: httpOnly, sameSite=lax, 7‑day maxAge. `secure` auto-upgrades on HTTPS unless overridden.
+- Accepts options: `{ serviceName, secret, cookieName, domain, maxAgeMs, enablePgStore, secureOverride }` – typically only `serviceName` & `secret` are passed here.
+- Must be mounted AFTER body parsers (JSON/urlencoded) but BEFORE auth routes. The app mounts auth manually after session creation to avoid body parsing order issues.
+
+Minimal integration pattern (already applied in `src/app.js`):
+```js
+import { createStandardSessionMiddleware } from '../../NudeShared/server/index.js';
+// ... inside bootstrap before auth router:
+app.use(createStandardSessionMiddleware({ serviceName: 'NudeAdmin', secret: process.env.SESSION_SECRET }));
+```
+
+Do not reintroduce inline session configuration blocks; extend the factory if new cross‑service behavior is needed.
+
 ## Tabs
 | Tab | Purpose |
 |-----|---------|

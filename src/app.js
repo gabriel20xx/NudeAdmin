@@ -1,15 +1,15 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
-import { mountTheme } from '../../NudeShared/server/theme/mountTheme.js';
-import { mountSharedStatic, defaultSharedCandidates, registerCachePolicyEndpoint } from '../../NudeShared/server/index.js';
+import { attachStandardNotFoundAndErrorHandlers } from '../../NudeShared/server/index.js';
+import { applySharedBase } from '../../NudeShared/server/app/applySharedBase.js';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import Logger from '../../NudeShared/server/logger/serverLogger.js';
 import { initDb } from '../../NudeShared/server/db/db.js';
 import { runMigrations } from '../../NudeShared/server/db/migrate.js';
 import { query, getDriver } from '../../NudeShared/server/db/db.js';
-import session from 'express-session';
+import { createStandardSessionMiddleware } from '../../NudeShared/server/middleware/sessionFactory.js';
 import { buildAuthRouter } from '../../NudeShared/server/api/authRoutes.js';
 import { buildProfileRouter } from '../../NudeShared/server/api/profileRoutes.js';
 import { buildUsersAdminRouter } from '../../NudeShared/server/api/usersRoutes.js';
@@ -27,8 +27,21 @@ const WORKSPACE_ROOT = path.resolve(PROJECT_ROOT, '..');
 dotenv.config({ path: path.join(PROJECT_ROOT, '.env') });
 
 const app = express();
-// Align with NudeForge: use strong ETags for consistent conditional GET behavior
-app.set('etag', 'strong');
+// Consolidated shared base setup (hardening, /shared, theme, auth, cache policy)
+applySharedBase(app, {
+  serviceName: 'NudeAdmin',
+  projectDir: __dirname,
+  sharedDir: path.resolve(__dirname, '..', '..', 'NudeShared'),
+  // Defer auth mounting until after session + body parsers to avoid 401s during tests
+  mountAuth: false,
+  cachePolicies: {
+    shared: { cssJs: 'public, max-age=3600', images: 'public, max-age=86400, stale-while-revalidate=604800' },
+    thumbnails: 'public, max-age=86400',
+    output: 'default (express static – adjust if needed)',
+    themeCss: 'public, max-age=3600'
+  },
+  cachePolicyNote: 'Adjust caching logic in app.js if changing policies.'
+});
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
@@ -68,11 +81,12 @@ app.use('/static', express.static(path.join(__dirname, 'public')));
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: true }));
 
-  // Sessions for auth (memory store acceptable for initial dev)
-  const sessionSecret = process.env.SESSION_SECRET || 'dev_admin_secret';
-  app.use(session({ secret: sessionSecret, resave: false, saveUninitialized: false, cookie: { sameSite: 'lax' } }));
+  // Standard session middleware (memory or pg store depending on DATABASE_URL)
+  app.set('trust proxy', 1);
+  const adminSessionMw = await createStandardSessionMiddleware({ serviceName: 'NudeAdmin', domain: process.env.COOKIE_DOMAIN || undefined });
+  app.use(adminSessionMw);
 
-  // Auth routes mounted (signup/login etc.)
+  // Auth routes mounted AFTER sessions/body parsing (shared base skipped auth via mountAuth:false)
   app.use('/auth', buildAuthRouter(express.Router));
   // Profile API (shared implementation) under /api
   app.use('/api', buildProfileRouter({ utils: { createSuccessResponse:(d,m='OK')=>({success:true,data:d,message:m}), createErrorResponse:(e)=>({success:false,error:e}), infoLog:()=>{}, errorLog:()=>{} }, siteTitle: 'NudeAdmin' }));
@@ -81,11 +95,7 @@ app.use('/static', express.static(path.join(__dirname, 'public')));
   // Lightweight readiness for tests that only need profile
   app.get('/api/__ready', (req,res)=> res.json({ ok:true }));
 
-// Shared static assets (tiered caching)
-mountSharedStatic(app, { candidates: [sharedDir], logger: Logger });
-
-// Unified theme mount
-mountTheme(app, { projectDir: path.join(__dirname), sharedDir, logger: console });
+// (Shared static + theme handled by applySharedBase)
 
 // Expose generated media output directory and a lightweight thumbnail passthrough for Admin previews
 // NOTE: We intentionally resolve OUTPUT_DIR lazily for routes to allow tests to override
@@ -105,7 +115,10 @@ app.get('/thumbs/output/:rest(*)', async (req, res) => {
   try {
     const currentOutputDir = resolveOutputDir();
     const rest = String(req.params.rest || '');
-    const normalized = path.normalize(rest).replace(/^\.+[\\\/]?/, '').replace(/^[\\\/]+/, '');
+    const normalized = path.normalize(rest)
+      // sanitize: drop leading ./ or ../ chains then leading slashes only (keep internal dots)
+      .replace(/^\.+[/]?/, '')
+      .replace(/^[/]+/, '');
     const abs = path.join(currentOutputDir, normalized);
     const rel = path.relative(currentOutputDir, abs);
     if (rel.startsWith('..') || path.isAbsolute(rel)) return res.status(400).send('Invalid path');
@@ -136,8 +149,8 @@ export function buildThumbnailTestApp(outputDir){
       // preserving valid file extensions (the previous regex removed the first dot anywhere,
       // breaking filenames like sample.png -> samplepng and causing false 404s in tests).
       const normalized = path.normalize(rest)
-        .replace(/^\.+[\\\/]?/,'')  // drop leading ./ or ../ chains
-        .replace(/^[\\\/]+/,'');     // drop any leading slashes
+        .replace(/^\.+[\\/]?/,'')  // drop leading ./ or ../ chains
+        .replace(/^[\\/]+/,'');     // drop any leading slashes
       const abs = path.join(outputDir, normalized);
       if(!fs.existsSync(abs)) return res.status(404).send('Not found');
       const w = Number(req.query.w)||undefined; const h = Number(req.query.h)||undefined;
@@ -179,7 +192,7 @@ try {
   process.on('nudeplatform:first-admin-created', () => {
     adminPresenceCache = { hasAdmin: true, ts: Date.now() };
   });
-} catch {}
+} catch { /* ignore admin-created event binding */ }
 app.use(async (req, res, next) => {
   const hasAdmin = await ensureAdminPresenceFlag();
   const adminNeeded = !hasAdmin;
@@ -232,7 +245,7 @@ app.get('/api/admin/stats', requireAuth, requireAdmin, async (req,res)=>{
     const hasFilter = normFilter.length > 0;
     const likeValPg = `%${normFilter}%`;
     const likeValSqlite = `%${normFilter.toLowerCase()}%`;
-    const likeExpr = (col) => driver === 'pg' ? `${col} ILIKE $X` : `LOWER(${col}) LIKE ?`;
+  // const likeExpr = (col) => driver === 'pg' ? `${col} ILIKE $X` : `LOWER(${col}) LIKE ?`; // reserved for future dynamic column filtering
 
     // Totals: users
     {
@@ -459,8 +472,8 @@ app.get('/api/admin/stats', requireAuth, requireAdmin, async (req,res)=>{
         avgGenMs,
         minGen,
         maxGen,
-  conversion: conv,
-  longestView
+    conversion: conv,
+    longestView
       }
     };
     res.json(payload);
@@ -474,23 +487,12 @@ app.get('/admin/media', (req, res) => { res.redirect(302, '/media'); });
 app.get('/settings', (req, res) => { res.render('settings', { title: 'Settings' }); });
 app.get('/profile', (req, res) => { res.render('profile', { title: 'Profile' }); });
 
-// Health
-app.get('/health', (req, res) => res.json({ ok: true, uptime: process.uptime() }));
+// Legacy explicit /health retained for backward compatibility if monitors rely on JSON (hardening may have provided a redirect alias).
+if (!app._router?.stack.some(r=> r.route?.path === '/health')) {
+  app.get('/health', (req,res)=> res.redirect(302,'/healthz'));
+}
 
-// Cache policy endpoint via shared helper
-registerCachePolicyEndpoint(app, {
-  service: 'NudeAdmin',
-  getPolicies: () => ({
-    shared: {
-      cssJs: 'public, max-age=3600',
-      images: 'public, max-age=86400, stale-while-revalidate=604800'
-    },
-    thumbnails: 'public, max-age=86400',
-    output: 'default (express static – adjust if needed)',
-    themeCss: 'public, max-age=3600'
-  }),
-  note: 'Adjust caching logic in app.js if changing policies. This endpoint is informational.'
-});
+// (Cache policy endpoint registered via applySharedBase)
 
 // --- AuthZ helpers ---
 function requireAuth(req, res, next){ if(!req.session?.user?.id) return res.status(401).json({ ok:false, error:'Not authenticated'}); next(); }
@@ -549,7 +551,7 @@ app.use('/api', buildAdminSettingsRouter({
 // Batch media actions
 app.post('/api/admin/media/actions', requireAuth, requireAdmin, async (req,res)=>{
   try {
-    const { action, ids, title, category, tags } = req.body||{};
+      const { action, ids, title, /* category (deprecated legacy single category field) */ tags } = req.body||{};
     if(!Array.isArray(ids) || !ids.length) return res.status(400).json({ ok:false, error:'No ids'});
     const placeholders = ids.map(()=>'?').join(',');
     const parseTags = (val)=> Array.from(new Set(String(val||'').split(/[ ,]+/).map(s=> s.trim().toLowerCase()).filter(Boolean).map(s=> s.slice(0,40))));
@@ -595,7 +597,12 @@ app.post('/api/admin/media/actions', requireAuth, requireAdmin, async (req,res)=
         const tagList = parseTags(tags);
         await query(`DELETE FROM media_tags WHERE media_id IN (${placeholders})`, ids);
         let inserted=0;
-        for(const mid of ids){ for(const tg of tagList){ try { await query('INSERT OR IGNORE INTO media_tags (media_id, tag) VALUES (?,?)', [mid, tg]); inserted++; } catch {} } }
+        for(const mid of ids){
+          for(const tg of tagList){
+            try { await query('INSERT OR IGNORE INTO media_tags (media_id, tag) VALUES (?,?)', [mid, tg]); inserted++; }
+            catch { /* ignore individual tag insert error (likely UNIQUE constraint) */ }
+          }
+        }
         r = { changes: inserted };
         break;
       }
@@ -628,3 +635,4 @@ start();
 export { app };
 
 // Duplicate buildThumbnailTestApp removed (original defined earlier with persist:true)
+attachStandardNotFoundAndErrorHandlers(app, { serviceName:'NudeAdmin' });

@@ -7,11 +7,11 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "node --watch src/app.js",
-  "test": "vitest run -c ../vitest.config.mjs",
-  "test:watch": "vitest -c ../vitest.config.mjs --watch",
-  "coverage": "vitest run -c ../vitest.config.mjs --coverage",
-  "lint": "eslint .",
-  "lint:fix": "eslint . --fix"
+    "test": "vitest run -c ../vitest.config.mjs",
+    "test:watch": "vitest -c ../vitest.config.mjs --watch",
+    "coverage": "vitest run -c ../vitest.config.mjs --coverage",
+    "lint": "eslint . --ext .js",
+    "lint:fix": "eslint . --ext .js --fix"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
