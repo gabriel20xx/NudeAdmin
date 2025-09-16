@@ -152,6 +152,14 @@ export function buildThumbnailTestApp(outputDir){
   return tApp;
 }
 
+// Lightweight factory used by consolidated smoke tests. Ensures DB init + migrations run
+// before returning the configured Express instance. Idempotent because initDb + runMigrations
+// are already safe for repeat calls.
+export async function createApp(){
+  try { await initDb(); await runMigrations(); } catch(e){ Logger.warn('ADMIN_APP','Init/migrate failed in createApp', { error: e?.message }); }
+  return app;
+}
+
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
