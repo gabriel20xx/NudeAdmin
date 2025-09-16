@@ -19,6 +19,23 @@ export default [
     }
   },
   {
+    files: ['src/public/js/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'script',
+      globals: {
+        ...globals.browser,
+        ...globals.es2022
+      }
+    },
+    rules: {
+      'no-unused-vars': 'off',
+      'no-console': 'off',
+      'no-empty': 'off',
+      'no-useless-escape': 'off'
+    }
+  },
+  {
     files: ['test/**/*.{js,mjs}'],
     languageOptions: {
       globals: {
