@@ -2,7 +2,8 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import { attachStandardNotFoundAndErrorHandlers } from '../../NudeShared/server/index.js';
-import { applySharedBase } from '../../NudeShared/server/app/applySharedBase.js';
+import { applySharedBase } from '../../NudeShared/server/app/applySharedBase.js'; // retained for layout helper timing
+import { createStandardApp } from '../../NudeShared/server/app/createStandardApp.js';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import Logger from '../../NudeShared/server/logger/serverLogger.js';
@@ -26,24 +27,22 @@ const WORKSPACE_ROOT = path.resolve(PROJECT_ROOT, '..');
 
 dotenv.config({ path: path.join(PROJECT_ROOT, '.env') });
 
-const app = express();
-// Consolidated shared base setup (hardening, /shared, theme, auth, cache policy)
-applySharedBase(app, {
+// Use new shared standard app factory (reduces boilerplate).
+const app = await createStandardApp({
   serviceName: 'NudeAdmin',
   projectDir: __dirname,
   sharedDir: path.resolve(__dirname, '..', '..', 'NudeShared'),
-  // Defer auth mounting until after session + body parsers to avoid 401s during tests
-  mountAuth: false,
+  // Real EJS likely installed; keep fallback enabled harmlessly.
+  view: { paths: path.join(__dirname, 'views') },
+  mountAuth: true, // mount /auth (after session inside factory)
+  sessionOptions: { domain: process.env.COOKIE_DOMAIN || undefined },
   cachePolicies: {
     shared: { cssJs: 'public, max-age=3600', images: 'public, max-age=86400, stale-while-revalidate=604800' },
-    thumbnails: 'public, max-age=86400',
-    output: 'default (express static – adjust if needed)',
-    themeCss: 'public, max-age=3600'
+    themeCss: 'public, max-age=3600',
+    adminPublic: 'default (no explicit overrides)'
   },
-  cachePolicyNote: 'Adjust caching logic in app.js if changing policies.'
+  cachePolicyNote: 'Adjust in NudeAdmin/src/app.js when modifying static caching.'
 });
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
 
 // Minimal layout helper to support `<% layout('partials/layout') %>` in views
 // Usage in a view: `<% layout('partials/layout') %>` then the template's body will be exposed as `body` inside the layout file.
@@ -78,22 +77,14 @@ const sharedDir = process.env.NUDESHARED_DIR || path.resolve(PROJECT_ROOT, '..',
 
 // Static: serve admin public and mount shared assets if available
 app.use('/static', express.static(path.join(__dirname, 'public')));
-  app.use(express.json({ limit: '1mb' }));
-  app.use(express.urlencoded({ extended: true }));
-
-  // Standard session middleware (memory or pg store depending on DATABASE_URL)
-  app.set('trust proxy', 1);
-  const adminSessionMw = await createStandardSessionMiddleware({ serviceName: 'NudeAdmin', domain: process.env.COOKIE_DOMAIN || undefined });
-  app.use(adminSessionMw);
-
-  // Auth routes mounted AFTER sessions/body parsing (shared base skipped auth via mountAuth:false)
-  app.use('/auth', buildAuthRouter(express.Router));
-  // Profile API (shared implementation) under /api
-  app.use('/api', buildProfileRouter({ utils: { createSuccessResponse:(d,m='OK')=>({success:true,data:d,message:m}), createErrorResponse:(e)=>({success:false,error:e}), infoLog:()=>{}, errorLog:()=>{} }, siteTitle: 'NudeAdmin' }));
-  // Serve default avatar asset if missing path referenced
-  app.use('/images', express.static(path.join(sharedDir, 'client', 'images')));
-  // Lightweight readiness for tests that only need profile
-  app.get('/api/__ready', (req,res)=> res.json({ ok:true }));
+// Determine sharedDir once (factory already mounted shared static/theme; used here for images avatar fallback)
+const __sharedDir = process.env.NUDESHARED_DIR || path.resolve(__dirname, '..', '..', 'NudeShared');
+// Profile API (shared implementation) under /api
+app.use('/api', buildProfileRouter({ utils: { createSuccessResponse:(d,m='OK')=>({success:true,data:d,message:m}), createErrorResponse:(e)=>({success:false,error:e}), infoLog:()=>{}, errorLog:()=>{} }, siteTitle: 'NudeAdmin' }));
+// Serve default avatar asset if missing path referenced
+app.use('/images', express.static(path.join(__sharedDir, 'client', 'images')));
+// Lightweight readiness for tests that only need profile
+app.get('/api/__ready', (req,res)=> res.json({ ok:true }));
 
 // (Shared static + theme handled by applySharedBase)
 
@@ -173,8 +164,7 @@ export async function createApp(){
   return app;
 }
 
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+// (Body parsers + session already applied by createStandardApp)
 
 // --- Admin bootstrap aware locals (enables signup ONLY when no admin exists) ---
 let adminPresenceCache = { hasAdmin: null, ts: 0 };
@@ -487,10 +477,7 @@ app.get('/admin/media', (req, res) => { res.redirect(302, '/media'); });
 app.get('/settings', (req, res) => { res.render('settings', { title: 'Settings' }); });
 app.get('/profile', (req, res) => { res.render('profile', { title: 'Profile' }); });
 
-// Legacy explicit /health retained for backward compatibility if monitors rely on JSON (hardening may have provided a redirect alias).
-if (!app._router?.stack.some(r=> r.route?.path === '/health')) {
-  app.get('/health', (req,res)=> res.redirect(302,'/healthz'));
-}
+// /health alias supplied by shared hardening (via applySharedBase inside factory)
 
 // (Cache policy endpoint registered via applySharedBase)
 
