@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import { attachStandardNotFoundAndErrorHandlers } from '../../NudeShared/server/index.js';
-import { applySharedBase } from '../../NudeShared/server/app/applySharedBase.js'; // retained for layout helper timing
+// applySharedBase no longer needed directly; createStandardApp handles shared mounting
 import { createStandardApp } from '../../NudeShared/server/app/createStandardApp.js';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
@@ -10,14 +10,14 @@ import Logger from '../../NudeShared/server/logger/serverLogger.js';
 import { initDb } from '../../NudeShared/server/db/db.js';
 import { runMigrations } from '../../NudeShared/server/db/migrate.js';
 import { query, getDriver } from '../../NudeShared/server/db/db.js';
-import { createStandardSessionMiddleware } from '../../NudeShared/server/middleware/sessionFactory.js';
-import { buildAuthRouter } from '../../NudeShared/server/api/authRoutes.js';
+// Session + auth mounting handled by factory
 import { buildProfileRouter } from '../../NudeShared/server/api/profileRoutes.js';
 import { buildUsersAdminRouter } from '../../NudeShared/server/api/usersRoutes.js';
 import { buildAdminMediaRouter } from '../../NudeShared/server/api/adminMediaRoutes.js';
 import { buildAdminSettingsRouter } from '../../NudeShared/server/api/adminSettingsRoutes.js';
 import { buildAdminUsersRouter } from '../../NudeShared/server/api/adminUsersRoutes.js';
 import { getOrCreateOutputThumbnail } from './services/thumbnails.js';
+import { attachLayoutHelper } from '../../NudeShared/server/app/layoutEjsHelper.js';
 
 // Shared integration: expect NudeShared cloned sibling or via env NUDESHARED_DIR
 const __filename = fileURLToPath(import.meta.url);
@@ -44,36 +44,10 @@ const app = await createStandardApp({
   cachePolicyNote: 'Adjust in NudeAdmin/src/app.js when modifying static caching.'
 });
 
-// Minimal layout helper to support `<% layout('partials/layout') %>` in views
-// Usage in a view: `<% layout('partials/layout') %>` then the template's body will be exposed as `body` inside the layout file.
-app.use((req, res, next) => {
-  res.locals.__layout = null;
-  res.locals.layout = function(layoutPath){ res.locals.__layout = layoutPath; };
-  // Wrap render to inject body into layout if requested
-  const origRender = res.render.bind(res);
-  res.render = function(view, options = {}, callback){
-    // First render original view to string
-    return origRender(view, { ...res.locals, ...options }, function(err, html){
-      if (err) return callback ? callback(err) : req.next(err);
-      if (!res.locals.__layout) {
-        return callback ? callback(null, html) : res.send(html);
-      }
-      const bodyHtml = html;
-      const layoutView = res.locals.__layout;
-      // Prevent recursive layout usage inside layout itself
-      const layoutLocals = { ...res.locals, ...options, body: bodyHtml };
-      res.locals.__layout = null; // reset
-      return origRender(layoutView, layoutLocals, callback ? callback : function(lErr, lHtml){
-        if (lErr) return req.next(lErr);
-        res.send(lHtml);
-      });
-    });
-  };
-  next();
-});
+// Attach shared layout helper (unifies with other apps & reduces duplication)
+attachLayoutHelper(app);
 
-// Resolve sharedDir early (needed by subsequent static mounts)
-const sharedDir = process.env.NUDESHARED_DIR || path.resolve(PROJECT_ROOT, '..', 'NudeShared');
+// sharedDir resolution handled by factory; local variable removed
 
 // Static: serve admin public and mount shared assets if available
 app.use('/static', express.static(path.join(__dirname, 'public')));
